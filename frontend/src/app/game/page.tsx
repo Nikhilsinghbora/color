@@ -45,7 +45,7 @@ export default function GameViewPage() {
 
   // Derive the active round ID from the selected game mode
   const activeMode = (gameModes ?? []).find((m) => m.id === activeGameModeId);
-  const roundId = activeMode?.active_round_id ?? fallbackRoundId;
+  const roundId = activeMode?.active_round_id ?? null;
 
   // ── Fetch game modes on mount ──
   useEffect(() => {
@@ -81,7 +81,8 @@ export default function GameViewPage() {
     [setActiveGameMode],
   );
 
-  useWebSocket(roundId);
+  // Only connect to WebSocket when we have a valid round ID (not 'current')
+  useWebSocket(roundId ?? '');
 
   // ── Store selectors ──
   const phase = useGameStore((s) => s.phase);
@@ -187,6 +188,12 @@ export default function GameViewPage() {
       const amount = amountOverride ?? betAmount;
       const effectiveRoundId = currentRound?.roundId ?? roundId;
 
+      // Validate we have a valid round ID
+      if (!effectiveRoundId || effectiveRoundId === 'current') {
+        setError('No active round available. Please wait for game to load.');
+        return;
+      }
+
       // Basic client-side validation
       if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) {
         setError('Enter a valid bet amount');
@@ -201,8 +208,7 @@ export default function GameViewPage() {
       setError(null);
 
       try {
-        const { data } = await apiClient.post<BetResponse>('/game/bet', {
-          round_id: effectiveRoundId,
+        const { data } = await apiClient.post<BetResponse>(`/game/rounds/${effectiveRoundId}/bet`, {
           color,
           amount,
         });
