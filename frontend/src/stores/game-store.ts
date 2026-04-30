@@ -57,6 +57,7 @@ export interface GameStoreState {
   closeBetSheet: () => void;
   openWinLossDialog: () => void;
   closeWinLossDialog: () => void;
+  updateActiveRoundId: (gameModeId: string, roundId: string) => void;
 }
 
 export const useGameStore = create<GameStoreState>((set) => ({
@@ -191,5 +192,13 @@ export const useGameStore = create<GameStoreState>((set) => ({
 
   closeWinLossDialog: () => {
     set({ showWinLossDialog: false });
+  },
+
+  updateActiveRoundId: (gameModeId: string, roundId: string) => {
+    set((state) => ({
+      gameModes: state.gameModes.map((m) =>
+        m.id === gameModeId ? { ...m, active_round_id: roundId } : m,
+      ),
+    }));
   },
 }));

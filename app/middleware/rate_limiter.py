@@ -56,6 +56,10 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         return payload.get("sub")
 
     async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
+        # BaseHTTPMiddleware does not support WebSocket — pass through
+        if request.scope.get("type") == "websocket":
+            return await call_next(request)
+
         player_id = self._extract_player_id(request)
 
         # Skip rate limiting for unauthenticated requests

@@ -27,6 +27,7 @@ from app.schemas.admin import (
     PlayerActionRequest,
     ProfitSettingsRequest,
     ProfitSettingsResponse,
+    ProfitGraphResponse,
     RoundProfitDetailsResponse,
 )
 from app.models.game import GameRound
@@ -258,3 +259,22 @@ async def get_round_profit_details(
         applied_winners_percentage=game_round.applied_winners_percentage,
         flagged_for_review=game_round.flagged_for_review,
     )
+
+
+@router.get("/profit-graph", response_model=ProfitGraphResponse)
+async def get_profit_graph(
+    period: str = Query("daily", regex="^(daily|weekly|monthly)$"),
+    days: int = Query(30, ge=1, le=365),
+    db: AsyncSession = Depends(get_db),
+    admin_id: UUID = Depends(_require_admin),
+):
+    """Return aggregated profit & margin data for graphing.
+
+    Query params:
+    - period: "daily" | "weekly" | "monthly"
+    - days: how many days of history (1–365, default 30)
+    """
+    data = await admin_service.get_profit_graph_data(
+        db, period=period, days=days,
+    )
+    return ProfitGraphResponse(**data)

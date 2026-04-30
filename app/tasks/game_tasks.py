@@ -108,9 +108,20 @@ async def _publish_result_message(
 
 
 async def _publish_new_round(
-    round_id: UUID, game_mode_id: UUID, period_number: str, timer: int, bot_count: int
+    round_id: UUID,
+    game_mode_id: UUID,
+    period_number: str,
+    timer: int,
+    bot_count: int,
+    previous_round_id: UUID | None = None,
 ):
-    """Publish new_round message when a new round starts."""
+    """Publish new_round message when a new round starts.
+
+    The message is published to the **previous** round's channel (if provided)
+    so that clients still connected to the old round receive it and can
+    transition.  It is also published to the new round's own channel for
+    any clients that have already reconnected.
+    """
     payload = {
         "type": "new_round",
         "round_id": str(round_id),
@@ -123,8 +134,15 @@ async def _publish_new_round(
 
     client = aioredis.from_url(settings.redis_url, decode_responses=True)
     try:
-        channel = f"channel:round:{round_id}"
-        await client.publish(channel, json.dumps(payload))
+        msg = json.dumps(payload)
+        # Publish to the previous round's channel so existing clients get it
+        if previous_round_id:
+            old_channel = f"channel:round:{previous_round_id}"
+            await client.publish(old_channel, msg)
+            logger.info("Published new_round to old channel %s", old_channel)
+        # Also publish to the new round's channel
+        new_channel = f"channel:round:{round_id}"
+        await client.publish(new_channel, msg)
         logger.info("Published new_round for %s with timer %d seconds", round_id, timer)
     finally:
         await client.aclose()
@@ -242,13 +260,15 @@ async def _advance_resolution_rounds():
                     betting_ends_at = betting_ends_at.replace(tzinfo=timezone.utc)
                 initial_timer = max(0, int((betting_ends_at - now_utc).total_seconds()))
 
-                # Send new_round message
+                # Send new_round message to the OLD round's channel so
+                # existing clients receive it and can transition.
                 await _publish_new_round(
                     new_round.id,
                     new_round.game_mode_id,
                     new_round.period_number,
                     initial_timer,
                     bot_stats["total_bots"],
+                    previous_round_id=finalized.id,
                 )
                 logger.info(
                     "Started new round %s for game mode %s with %d bots",

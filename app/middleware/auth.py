@@ -40,6 +40,10 @@ class RecentAuthMiddleware(BaseHTTPMiddleware):
         return any(path.startswith(prefix) for prefix in self.sensitive_prefixes)
 
     async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
+        # BaseHTTPMiddleware does not support WebSocket — pass through
+        if request.scope.get("type") == "websocket":
+            return await call_next(request)
+
         if not self._is_sensitive(request.url.path):
             return await call_next(request)
 

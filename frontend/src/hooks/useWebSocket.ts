@@ -63,6 +63,14 @@ export function useWebSocket(roundId: string) {
         }
         // Also update the timer immediately so countdown starts
         gameStore.updateTimer(msg.timer);
+        // Update the active round ID on the game mode so the WebSocket
+        // hook reconnects to the new round's channel.
+        {
+          const activeModeId = gameStore.activeGameModeId;
+          if (activeModeId) {
+            gameStore.updateActiveRoundId(activeModeId, msg.round_id);
+          }
+        }
         break;
 
       case 'bet_update': {

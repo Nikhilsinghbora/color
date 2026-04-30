@@ -20,7 +20,8 @@ from app.exceptions import (
     InvalidTransitionError,
 )
 from app.models.game import Bet, GameMode, GameRound, Payout, RoundPhase
-from app.services import payout_calculator, profit_service, rng_engine, wallet_service
+from app.services import payout_calculator, profit_service, wallet_service
+from app.services import outcome_engine
 from app.services.period_number import generate_period_number
 
 
@@ -183,7 +184,12 @@ async def place_bet(
 
 
 async def resolve_round(session: AsyncSession, round_id: UUID) -> GameRound:
-    """Invoke RNG and transition round to RESOLUTION phase.
+    """Analyse bets and pick the winning number that satisfies the house
+    profit margin, then transition the round to RESOLUTION phase.
+
+    The outcome engine evaluates every candidate number (0–9) against the
+    admin-configured profit split and picks one that keeps the house at or
+    above its target margin.  When no bets exist the outcome is pure random.
 
     Args:
         session: Async database session.
@@ -202,17 +208,28 @@ async def resolve_round(session: AsyncSession, round_id: UUID) -> GameRound:
 
     _validate_transition(game_round.phase, RoundPhase.RESOLUTION)
 
-    # Fetch game mode for color options
+    # Fetch game mode for odds
     mode_result = await session.execute(
         select(GameMode).where(GameMode.id == game_round.game_mode_id)
     )
     game_mode = mode_result.scalar_one()
 
-    # Generate RNG outcome
-    rng_result = rng_engine.generate_outcome(game_mode.color_options)
+    # Fetch the admin-configured house profit target
+    profit_settings = await profit_service.get_active_profit_settings(session)
+    target_house_pct = (
+        profit_settings.house_profit_percentage
+        if profit_settings
+        else Decimal("20.00")  # default 20 % house
+    )
 
-    # Record audit entry
-    await rng_engine.create_audit_entry(session, round_id, rng_result)
+    # Use the profit-margin-aware outcome engine
+    rng_result = await outcome_engine.select_outcome(
+        session,
+        round_id,
+        game_mode,
+        game_round.total_bets,
+        target_house_pct,
+    )
 
     # Update round
     game_round.phase = RoundPhase.RESOLUTION

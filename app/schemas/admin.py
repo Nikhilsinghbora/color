@@ -110,3 +110,26 @@ class RoundProfitDetailsResponse(BaseModel):
     flagged_for_review: bool
 
     model_config = {"from_attributes": True}
+
+
+class ProfitGraphPoint(BaseModel):
+    """A single data point for the profit/margin graph."""
+
+    date: str                       # ISO date or datetime string
+    total_bets: Decimal
+    total_payouts: Decimal
+    house_profit: Decimal
+    profit_margin_pct: Decimal      # (house_profit / total_bets) * 100
+    rounds_played: int
+
+
+class ProfitGraphResponse(BaseModel):
+    """Response schema for the profit & margin graph data."""
+
+    points: list[ProfitGraphPoint]
+    period: str                     # "daily" | "weekly" | "monthly"
+    target_margin_pct: Decimal      # current admin-configured house %
+    summary_total_bets: Decimal
+    summary_total_payouts: Decimal
+    summary_total_profit: Decimal
+    summary_avg_margin_pct: Decimal

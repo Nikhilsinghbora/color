@@ -214,3 +214,100 @@ async def get_rng_audit_logs(
     logs = result.scalars().all()
 
     return {"logs": logs, "page": page, "page_size": page_size, "total": total}
+
+
+async def get_profit_graph_data(
+    session: AsyncSession,
+    *,
+    period: str = "daily",
+    days: int = 30,
+) -> dict:
+    """Return aggregated profit data grouped by date for graphing.
+
+    Args:
+        session: Database session.
+        period: Grouping granularity — "daily", "weekly", or "monthly".
+        days: How many days of history to include.
+
+    Returns:
+        Dict with ``points`` list and summary totals.
+    """
+    from app.models.game import GameRound, RoundPhase
+    from app.services import profit_service
+
+    now = datetime.now(timezone.utc)
+    start = now - timedelta(days=days)
+
+    # Fetch completed rounds in the window
+    result = await session.execute(
+        select(GameRound)
+        .where(
+            GameRound.phase == RoundPhase.RESULT,
+            GameRound.completed_at >= start,
+        )
+        .order_by(GameRound.completed_at.asc())
+    )
+    rounds = result.scalars().all()
+
+    # Group by date bucket
+    from collections import defaultdict
+
+    buckets: dict[str, list] = defaultdict(list)
+    for r in rounds:
+        completed = r.completed_at
+        if completed.tzinfo is None:
+            completed = completed.replace(tzinfo=timezone.utc)
+        if period == "weekly":
+            # ISO week start (Monday)
+            iso = completed.isocalendar()
+            key = f"{iso[0]}-W{iso[1]:02d}"
+        elif period == "monthly":
+            key = completed.strftime("%Y-%m")
+        else:
+            key = completed.strftime("%Y-%m-%d")
+        buckets[key].append(r)
+
+    points = []
+    sum_bets = Decimal("0.00")
+    sum_payouts = Decimal("0.00")
+    sum_profit = Decimal("0.00")
+
+    for date_key in sorted(buckets.keys()):
+        group = buckets[date_key]
+        bets = sum(r.total_bets or Decimal("0") for r in group)
+        payouts = sum(r.total_payouts or Decimal("0") for r in group)
+        profit = bets - payouts
+        margin = (profit / bets * Decimal("100")).quantize(Decimal("0.01")) if bets > 0 else Decimal("0.00")
+
+        points.append({
+            "date": date_key,
+            "total_bets": bets,
+            "total_payouts": payouts,
+            "house_profit": profit,
+            "profit_margin_pct": margin,
+            "rounds_played": len(group),
+        })
+
+        sum_bets += bets
+        sum_payouts += payouts
+        sum_profit += profit
+
+    avg_margin = (
+        (sum_profit / sum_bets * Decimal("100")).quantize(Decimal("0.01"))
+        if sum_bets > 0
+        else Decimal("0.00")
+    )
+
+    # Current target margin
+    settings = await profit_service.get_active_profit_settings(session)
+    target = settings.house_profit_percentage if settings else Decimal("20.00")
+
+    return {
+        "points": points,
+        "period": period,
+        "target_margin_pct": target,
+        "summary_total_bets": sum_bets,
+        "summary_total_payouts": sum_payouts,
+        "summary_total_profit": sum_profit,
+        "summary_avg_margin_pct": avg_margin,
+    }

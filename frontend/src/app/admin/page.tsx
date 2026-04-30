@@ -1,11 +1,21 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import Link from 'next/link';
 import { useAdminGuard } from '@/hooks/useAdminGuard';
 import { apiClient } from '@/lib/api-client';
 import type { AdminDashboardMetrics } from '@/types';
 
 const PERIODS = ['daily', 'weekly', 'monthly', 'all_time'] as const;
+
+const ADMIN_NAV = [
+  { href: '/admin', label: 'Dashboard' },
+  { href: '/admin/profit', label: 'Profit & Margins' },
+  { href: '/admin/config', label: 'Game Config' },
+  { href: '/admin/players', label: 'Players' },
+  { href: '/admin/audit', label: 'Audit Logs' },
+  { href: '/admin/rng-audit', label: 'RNG Audit' },
+] as const;
 
 export default function AdminDashboardPage() {
   useAdminGuard();
@@ -36,7 +46,24 @@ export default function AdminDashboardPage() {
 
   return (
     <main className="max-w-6xl mx-auto p-4">
-      <h1 className="text-2xl font-bold mb-6">Admin Dashboard</h1>
+      <h1 className="text-2xl font-bold mb-4">Admin Dashboard</h1>
+
+      {/* Admin navigation */}
+      <nav className="flex flex-wrap gap-2 mb-6" aria-label="Admin navigation">
+        {ADMIN_NAV.map((item) => (
+          <Link
+            key={item.href}
+            href={item.href}
+            className={`px-3 py-1.5 rounded text-sm border ${
+              item.href === '/admin'
+                ? 'bg-blue-600 text-white border-blue-600'
+                : 'hover:bg-gray-100 border-gray-300'
+            }`}
+          >
+            {item.label}
+          </Link>
+        ))}
+      </nav>
 
       <div className="mb-6">
         <label htmlFor="period-select" className="sr-only">Select period</label>
