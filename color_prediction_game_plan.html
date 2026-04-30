@@ -1,0 +1,343 @@
+
+<h2 class="sr-only">Color prediction game — complete development plan with 5 phases, tech stack, and module breakdown</h2>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--font-sans)}
+.plan{padding:1rem 0}
+.phase-card{border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);margin-bottom:10px;overflow:hidden;background:var(--color-background-primary)}
+.phase-header{display:flex;align-items:center;gap:12px;padding:13px 16px;cursor:pointer;user-select:none;transition:background .15s}
+.phase-header:hover{background:var(--color-background-secondary)}
+.phase-num{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:500;flex-shrink:0}
+.phase-title{font-size:14px;font-weight:500;color:var(--color-text-primary);flex:1}
+.phase-sub{font-size:11px;color:var(--color-text-secondary);margin-left:auto;margin-right:8px}
+.chevron{width:14px;height:14px;transition:transform .2s;flex-shrink:0;opacity:.5}
+.chevron.open{transform:rotate(180deg)}
+.phase-body{display:none;padding:0 16px 16px;border-top:0.5px solid var(--color-border-tertiary)}
+.phase-body.open{display:block}
+.module-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px;margin-top:12px}
+.module{background:var(--color-background-secondary);border-radius:8px;padding:10px 12px}
+.mod-title{font-size:12px;font-weight:500;color:var(--color-text-primary);margin-bottom:6px}
+.mod-items{list-style:none}
+.mod-items li{font-size:11px;color:var(--color-text-secondary);padding:2px 0;display:flex;align-items:baseline;gap:5px}
+.mod-items li::before{content:"–";opacity:.4;flex-shrink:0}
+.tag-row{display:flex;flex-wrap:wrap;gap:5px;margin-top:10px}
+.tag{font-size:10px;padding:3px 8px;border-radius:4px;font-weight:500}
+.t-db{background:var(--color-background-info);color:var(--color-text-info)}
+.t-ws{background:var(--color-background-success);color:var(--color-text-success)}
+.t-ui{background:var(--color-background-warning);color:var(--color-text-warning)}
+.t-admin{background:var(--color-background-danger);color:var(--color-text-danger)}
+.t-bot{color:#534AB7;background:#EEEDFE}
+.t-api{color:#712B13;background:#FAECE7}
+.section-label{font-size:11px;font-weight:500;color:var(--color-text-secondary);letter-spacing:.04em;text-transform:uppercase;margin-bottom:8px;margin-top:4px}
+.stack-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px}
+.stack-card{background:var(--color-background-secondary);border-radius:8px;padding:9px 12px}
+.stack-layer{font-size:10px;color:var(--color-text-tertiary);margin-bottom:3px;font-weight:500;text-transform:uppercase;letter-spacing:.04em}
+.stack-val{font-size:12px;color:var(--color-text-primary);font-weight:500;font-family:var(--font-mono)}
+.event-table{width:100%;border-collapse:collapse;font-size:11px;margin-top:10px}
+.event-table th{text-align:left;color:var(--color-text-secondary);font-weight:500;padding:5px 8px;border-bottom:0.5px solid var(--color-border-tertiary)}
+.event-table td{padding:5px 8px;border-bottom:0.5px solid var(--color-border-tertiary);color:var(--color-text-primary);vertical-align:top}
+.event-table tr:last-child td{border-bottom:none}
+.event-table td:first-child{font-family:var(--font-mono);font-size:10.5px;color:var(--color-text-info)}
+.mkt-table{width:100%;border-collapse:collapse;font-size:11px;margin-top:10px}
+.mkt-table th{text-align:left;color:var(--color-text-secondary);font-weight:500;padding:4px 8px;border-bottom:0.5px solid var(--color-border-tertiary)}
+.mkt-table td{padding:5px 8px;border-bottom:0.5px solid var(--color-border-tertiary);color:var(--color-text-primary)}
+.mkt-table tr:last-child td{border-bottom:none}
+.dot{width:10px;height:10px;border-radius:50%;display:inline-block;vertical-align:middle;margin-right:4px}
+.deliverables{display:flex;flex-wrap:wrap;gap:5px;margin-top:10px}
+.deliv{font-size:10px;padding:3px 9px;border-radius:20px;background:var(--color-background-secondary);color:var(--color-text-primary);border:0.5px solid var(--color-border-tertiary)}
+.ask-btn{font-size:11px;padding:5px 12px;border-radius:6px;border:0.5px solid var(--color-border-secondary);background:transparent;color:var(--color-text-info);cursor:pointer;margin-top:12px;display:inline-block}
+.ask-btn:hover{background:var(--color-background-info)}
+</style>
+
+<div class="plan">
+
+<div class="section-label">Tech stack</div>
+<div class="stack-grid" style="margin-bottom:16px">
+  <div class="stack-card"><div class="stack-layer">Backend</div><div class="stack-val">Node.js + Express</div></div>
+  <div class="stack-card"><div class="stack-layer">Real-time</div><div class="stack-val">Socket.IO / WS</div></div>
+  <div class="stack-card"><div class="stack-layer">Database</div><div class="stack-val">MySQL / PostgreSQL</div></div>
+  <div class="stack-card"><div class="stack-layer">Cache / queue</div><div class="stack-val">Redis</div></div>
+  <div class="stack-card"><div class="stack-layer">Frontend</div><div class="stack-val">React / Next.js</div></div>
+  <div class="stack-card"><div class="stack-layer">Scheduler</div><div class="stack-val">node-cron / BullMQ</div></div>
+</div>
+
+<div class="section-label">Development phases</div>
+
+<!-- Phase 1 -->
+<div class="phase-card">
+  <div class="phase-header" onclick="toggle(this)">
+    <div class="phase-num" style="background:#E6F1FB;color:#185FA5">1</div>
+    <span class="phase-title">Foundation — auth, DB, admin shell</span>
+    <span class="phase-sub">Week 1–2</span>
+    <svg class="chevron" viewBox="0 0 16 16" fill="none"><path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+  </div>
+  <div class="phase-body">
+    <div class="module-grid">
+      <div class="module">
+        <div class="mod-title">User auth</div>
+        <ul class="mod-items">
+          <li>Register / login (JWT)</li>
+          <li>Phone OTP or email verify</li>
+          <li>Role system: player, agent, super admin</li>
+          <li>Session + refresh tokens</li>
+        </ul>
+      </div>
+      <div class="module">
+        <div class="mod-title">Database schema</div>
+        <ul class="mod-items">
+          <li>users, roles, wallets</li>
+          <li>rounds, bets, transactions</li>
+          <li>markets, market_history</li>
+          <li>game_settings (key-value)</li>
+        </ul>
+      </div>
+      <div class="module">
+        <div class="mod-title">Wallet system</div>
+        <ul class="mod-items">
+          <li>Coin/balance ledger table</li>
+          <li>Deposit + withdrawal flow</li>
+          <li>Idempotent debit/credit ops</li>
+          <li>Transaction history</li>
+        </ul>
+      </div>
+      <div class="module">
+        <div class="mod-title">Super admin shell</div>
+        <ul class="mod-items">
+          <li>Login-protected admin panel</li>
+          <li>User list + balance view</li>
+          <li>Manual balance adjust</li>
+          <li>System config page</li>
+        </ul>
+      </div>
+    </div>
+    <div class="deliverables">
+      <span class="deliv">Auth APIs</span>
+      <span class="deliv">DB migrations</span>
+      <span class="deliv">Wallet APIs</span>
+      <span class="deliv">Admin login</span>
+    </div>
+    <button class="ask-btn" onclick="sendPrompt('Give me the full database schema for the color prediction game ↗')">Ask for full DB schema ↗</button>
+  </div>
+</div>
+
+<!-- Phase 2 -->
+<div class="phase-card">
+  <div class="phase-header" onclick="toggle(this)">
+    <div class="phase-num" style="background:#E1F5EE;color:#0F6E56">2</div>
+    <span class="phase-title">Game engine — round loop, markets, bots</span>
+    <span class="phase-sub">Week 3–4</span>
+    <svg class="chevron" viewBox="0 0 16 16" fill="none"><path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+  </div>
+  <div class="phase-body">
+    <div class="module-grid">
+      <div class="module">
+        <div class="mod-title">Round engine</div>
+        <ul class="mod-items">
+          <li>Auto round ID generator</li>
+          <li>Cron-driven round lifecycle</li>
+          <li>State machine: init → betting → closed → result</li>
+          <li>Round stored in Redis (active) + DB (archive)</li>
+        </ul>
+      </div>
+      <div class="module">
+        <div class="mod-title">Market config</div>
+        <ul class="mod-items">
+          <li>Markets table: color + number</li>
+          <li>Multiplier editable by super admin</li>
+          <li>Multiplier snapshot frozen at bet_start</li>
+          <li>market_history audit log</li>
+        </ul>
+      </div>
+      <div class="module">
+        <div class="mod-title">Bet processing</div>
+        <ul class="mod-items">
+          <li>Validate: round open, balance OK</li>
+          <li>Atomic debit + bet insert</li>
+          <li>Duplicate/double-bet guard</li>
+          <li>Per-round bet aggregation</li>
+        </ul>
+      </div>
+      <div class="module">
+        <div class="mod-title">Bot engine</div>
+        <ul class="mod-items">
+          <li>Bot pool: names, avatars in config</li>
+          <li>Random bet amount + market per bot</li>
+          <li>Jitter: fired 0–15s into betting window</li>
+          <li>Only in WS payload — zero DB writes</li>
+        </ul>
+      </div>
+    </div>
+
+    <div style="margin-top:14px">
+      <div class="section-label" style="margin-bottom:6px">Market structure (super admin managed)</div>
+      <table class="mkt-table">
+        <tr><th>Market</th><th>Type</th><th>Default multiplier</th><th>Editable</th></tr>
+        <tr><td><span class="dot" style="background:#D85A30"></span>Red</td><td>Color</td><td>2×</td><td>Yes</td></tr>
+        <tr><td><span class="dot" style="background:#1D9E75"></span>Green</td><td>Color</td><td>2×</td><td>Yes</td></tr>
+        <tr><td><span class="dot" style="background:#7F77DD"></span>Violet</td><td>Color</td><td>4.5×</td><td>Yes</td></tr>
+        <tr><td>Big (6–9)</td><td>Size</td><td>2×</td><td>Yes</td></tr>
+        <tr><td>Small (1–4)</td><td>Size</td><td>2×</td><td>Yes</td></tr>
+        <tr><td>0 (violet+red)</td><td>Number</td><td>4.5×</td><td>Yes</td></tr>
+        <tr><td>5 (violet+green)</td><td>Number</td><td>4.5×</td><td>Yes</td></tr>
+        <tr><td>1,2,3,4,6,7,8,9</td><td>Number</td><td>9×</td><td>Yes (per number)</td></tr>
+      </table>
+    </div>
+    <button class="ask-btn" onclick="sendPrompt('Write the round state machine and cron scheduler code ↗')">Ask for round engine code ↗</button>
+  </div>
+</div>
+
+<!-- Phase 3 -->
+<div class="phase-card">
+  <div class="phase-header" onclick="toggle(this)">
+    <div class="phase-num" style="background:#FAEEDA;color:#854F0B">3</div>
+    <span class="phase-title">Real-time layer — 10 WebSocket events</span>
+    <span class="phase-sub">Week 5</span>
+    <svg class="chevron" viewBox="0 0 16 16" fill="none"><path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+  </div>
+  <div class="phase-body">
+    <table class="event-table">
+      <tr><th>Event</th><th>Trigger</th><th>Payload highlight</th><th>DB?</th></tr>
+      <tr><td>new_round_start</td><td>Cron / prev round end</td><td>round_id, duration_ms</td><td>Write</td></tr>
+      <tr><td>game_table_info</td><td>After round created</td><td>markets snapshot, last 10 rounds</td><td>Read</td></tr>
+      <tr><td>bet_start</td><td>Timer</td><td>countdown_seconds, user_balance</td><td>—</td></tr>
+      <tr><td>market_update</td><td>Every 3s during bets</td><td>live total_bet_amount per market</td><td>Read</td></tr>
+      <tr><td>other_users_bet</td><td>Each bet placed</td><td>username, market, amount, is_bot</td><td>—</td></tr>
+      <tr><td>bet_placed (self)</td><td>Own bet ACK</td><td>bet_id, potential_win, balance_after</td><td>Write</td></tr>
+      <tr><td>bet_close</td><td>Timer</td><td>total_pool, user_bets summary</td><td>—</td></tr>
+      <tr><td>winner_info</td><td>RNG result</td><td>winning_number, winning_colors[]</td><td>Write</td></tr>
+      <tr><td>balance_update</td><td>Per winner</td><td>winnings, new_balance, is_winner</td><td>Write</td></tr>
+      <tr><td>round_history</td><td>After all payouts</td><td>last 10 rounds array</td><td>Read</td></tr>
+    </table>
+    <div class="tag-row" style="margin-top:12px">
+      <span class="tag t-ws">All events via Socket.IO rooms</span>
+      <span class="tag t-bot">Bots injected server-side only</span>
+      <span class="tag t-db">History capped at last 10 rounds</span>
+    </div>
+    <button class="ask-btn" onclick="sendPrompt('Write the Socket.IO server code for all 10 game events ↗')">Ask for WebSocket event code ↗</button>
+  </div>
+</div>
+
+<!-- Phase 4 -->
+<div class="phase-card">
+  <div class="phase-header" onclick="toggle(this)">
+    <div class="phase-num" style="background:#EEEDFE;color:#534AB7">4</div>
+    <span class="phase-title">Frontend — game UI, wallet, history</span>
+    <span class="phase-sub">Week 6–8</span>
+    <svg class="chevron" viewBox="0 0 16 16" fill="none"><path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+  </div>
+  <div class="phase-body">
+    <div class="module-grid">
+      <div class="module">
+        <div class="mod-title">Game table screen</div>
+        <ul class="mod-items">
+          <li>Round countdown timer</li>
+          <li>Color + number market chips</li>
+          <li>Bet input + place bet button</li>
+          <li>Live bet feed (real + bots)</li>
+          <li>Last 10 rounds strip at top</li>
+        </ul>
+      </div>
+      <div class="module">
+        <div class="mod-title">Result reveal UI</div>
+        <ul class="mod-items">
+          <li>Animated result number + color</li>
+          <li>Win / lose toast notification</li>
+          <li>Winning amount display</li>
+          <li>Balance update animation</li>
+        </ul>
+      </div>
+      <div class="module">
+        <div class="mod-title">Wallet & profile</div>
+        <ul class="mod-items">
+          <li>Current balance header</li>
+          <li>Deposit / withdrawal form</li>
+          <li>Transaction history list</li>
+          <li>Bet history with round results</li>
+        </ul>
+      </div>
+      <div class="module">
+        <div class="mod-title">Socket state</div>
+        <ul class="mod-items">
+          <li>Socket context / hook</li>
+          <li>Auto-reconnect on drop</li>
+          <li>Event queue while reconnecting</li>
+          <li>Phase-driven UI state machine</li>
+        </ul>
+      </div>
+    </div>
+    <div class="tag-row">
+      <span class="tag t-ui">Bet disabled during bet_close → winner_info</span>
+      <span class="tag t-ui">Timer sync from server, not client clock</span>
+      <span class="tag t-bot">Bots render identically to real users</span>
+    </div>
+    <button class="ask-btn" onclick="sendPrompt('Design the game table screen UI layout and component structure ↗')">Ask for UI design plan ↗</button>
+  </div>
+</div>
+
+<!-- Phase 5 -->
+<div class="phase-card">
+  <div class="phase-header" onclick="toggle(this)">
+    <div class="phase-num" style="background:#FCEBEB;color:#A32D2D">5</div>
+    <span class="phase-title">Super admin — markets, analytics, controls</span>
+    <span class="phase-sub">Week 9–10</span>
+    <svg class="chevron" viewBox="0 0 16 16" fill="none"><path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+  </div>
+  <div class="phase-body">
+    <div class="module-grid">
+      <div class="module">
+        <div class="mod-title">Market management</div>
+        <ul class="mod-items">
+          <li>Edit multiplier per market</li>
+          <li>Changes take effect next round</li>
+          <li>Enable / disable markets</li>
+          <li>Multiplier change audit log</li>
+        </ul>
+      </div>
+      <div class="module">
+        <div class="mod-title">Game controls</div>
+        <ul class="mod-items">
+          <li>Set round duration</li>
+          <li>Set bet window duration</li>
+          <li>Manual round pause / resume</li>
+          <li>Force result (test mode)</li>
+        </ul>
+      </div>
+      <div class="module">
+        <div class="mod-title">Bot config</div>
+        <ul class="mod-items">
+          <li>Min / max bots per round</li>
+          <li>Bot bet range (min/max)</li>
+          <li>Bot name + avatar pool</li>
+          <li>Enable / disable bots</li>
+        </ul>
+      </div>
+      <div class="module">
+        <div class="mod-title">Analytics</div>
+        <ul class="mod-items">
+          <li>Total bets / round chart</li>
+          <li>House edge vs payout ratio</li>
+          <li>Top players by volume</li>
+          <li>Market popularity heatmap</li>
+        </ul>
+      </div>
+    </div>
+    <div class="tag-row">
+      <span class="tag t-admin">Role-gated — super admin only</span>
+      <span class="tag t-db">All changes logged with changed_by</span>
+    </div>
+    <button class="ask-btn" onclick="sendPrompt('Build the super admin market multiplier management panel ↗')">Ask for admin panel plan ↗</button>
+  </div>
+</div>
+
+</div>
+
+<script>
+function toggle(header){
+  const body=header.nextElementSibling;
+  const chev=header.querySelector('.chevron');
+  const isOpen=body.classList.contains('open');
+  body.classList.toggle('open',!isOpen);
+  chev.classList.toggle('open',!isOpen);
+}
+document.querySelector('.phase-header').click();
+</script>
