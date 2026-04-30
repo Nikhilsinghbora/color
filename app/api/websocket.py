@@ -65,7 +65,15 @@ async def game_websocket(
         return
 
     # --- Connect ---
-    await ws_manager.connect(websocket, player_id, round_id)
+    try:
+        await ws_manager.connect(websocket, player_id, round_id)
+    except WebSocketDisconnect:
+        # Client disconnected during connection setup
+        logger.info("Client disconnected during connection setup: player %s, round %s", player_id, round_id)
+        return
+    except Exception:
+        logger.exception("Failed to establish WebSocket connection for player %s, round %s", player_id, round_id)
+        return
 
     # --- Receive loop ---
     try:

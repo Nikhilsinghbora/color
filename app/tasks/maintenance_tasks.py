@@ -17,7 +17,7 @@ from sqlalchemy import select
 
 from app.celery_app import celery_app
 from app.config import settings
-from app.models.base import async_session_factory
+from app.models.base import celery_session, dispose_celery_engine
 from app.models.responsible_gambling import DepositLimit
 from app.services.responsible_gambling_service import _compute_reset_time, _ensure_aware
 
@@ -30,6 +30,7 @@ def _run_async(coro):
     try:
         return loop.run_until_complete(coro)
     finally:
+        loop.run_until_complete(dispose_celery_engine())
         loop.close()
 
 
@@ -42,10 +43,10 @@ async def _reset_expired_deposit_limits() -> int:
 
     Returns the number of limits that were reset.
     """
-    now = datetime.now(timezone.utc)
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
     reset_count = 0
 
-    async with async_session_factory() as session:
+    async with celery_session() as session:
         result = await session.execute(
             select(DepositLimit).where(DepositLimit.resets_at <= now)
         )

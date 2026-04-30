@@ -15,7 +15,7 @@ from sqlalchemy import func, select
 
 from app.celery_app import celery_app
 from app.models.audit import AuditEventType, AuditTrail
-from app.models.base import async_session_factory
+from app.models.base import celery_session, dispose_celery_engine
 from app.models.game import Bet, GameRound, Payout
 
 logger = logging.getLogger(__name__)
@@ -27,6 +27,7 @@ def _run_async(coro):
     try:
         return loop.run_until_complete(coro)
     finally:
+        loop.run_until_complete(dispose_celery_engine())
         loop.close()
 
 
@@ -46,7 +47,7 @@ async def _generate_daily_report() -> dict:
     report_end = now.replace(hour=0, minute=0, second=0, microsecond=0)
     report_start = report_end - timedelta(days=1)
 
-    async with async_session_factory() as session:
+    async with celery_session() as session:
         # Total wagering volume
         bet_result = await session.execute(
             select(func.coalesce(func.sum(Bet.amount), Decimal("0.00"))).where(

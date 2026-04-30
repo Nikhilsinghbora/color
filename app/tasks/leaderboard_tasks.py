@@ -9,7 +9,7 @@ import logging
 from uuid import UUID
 
 from app.celery_app import celery_app
-from app.models.base import async_session_factory
+from app.models.base import celery_session, dispose_celery_engine
 from app.services import leaderboard_service
 
 logger = logging.getLogger(__name__)
@@ -21,12 +21,13 @@ def _run_async(coro):
     try:
         return loop.run_until_complete(coro)
     finally:
+        loop.run_until_complete(dispose_celery_engine())
         loop.close()
 
 
 async def _do_update(round_id_str: str) -> None:
     round_id = UUID(round_id_str)
-    async with async_session_factory() as session:
+    async with celery_session() as session:
         await leaderboard_service.update_rankings(session, round_id)
 
 

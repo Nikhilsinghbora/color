@@ -19,7 +19,7 @@ from sqlalchemy import select
 
 from app.celery_app import celery_app
 from app.config import settings
-from app.models.base import async_session_factory
+from app.models.base import celery_session, dispose_celery_engine
 from app.models.game import GameMode, GameRound, RoundPhase
 from app.services import game_engine
 from app.services.bot_service import bot_service
@@ -28,11 +28,16 @@ logger = logging.getLogger(__name__)
 
 
 def _run_async(coro):
-    """Run an async coroutine from synchronous Celery worker context."""
+    """Run an async coroutine from synchronous Celery worker context.
+
+    Creates a fresh event loop, runs the coroutine, then disposes the
+    Celery DB engine so connections don't leak across loop boundaries.
+    """
     loop = asyncio.new_event_loop()
     try:
         return loop.run_until_complete(coro)
     finally:
+        loop.run_until_complete(dispose_celery_engine())
         loop.close()
 
 
@@ -42,6 +47,7 @@ async def _publish_round_state(round_id: UUID, phase: str, extra: dict | None = 
     Channel: channel:round:{round_id}
     """
     payload = {
+        "type": "phase_change",
         "round_id": str(round_id),
         "phase": phase,
         "timestamp": datetime.now(timezone.utc).isoformat(),
@@ -58,10 +64,76 @@ async def _publish_round_state(round_id: UUID, phase: str, extra: dict | None = 
         await client.aclose()
 
 
+async def _publish_result_message(
+    round_id: UUID, winning_color: str, winning_number: int, bot_winners: list
+):
+    """Publish result message with winning details and payouts.
+
+    This is separate from phase_change to match the frontend's expected message format.
+    """
+    from app.models.payout import Payout
+
+    # Fetch real player payouts from database
+    async with celery_session() as session:
+        result = await session.execute(
+            select(Payout).where(Payout.round_id == round_id)
+        )
+        payouts = result.scalars().all()
+
+        payout_data = [
+            {
+                "bet_id": str(payout.bet_id),
+                "amount": str(payout.amount),
+            }
+            for payout in payouts
+        ]
+
+    payload = {
+        "type": "result",
+        "round_id": str(round_id),
+        "winning_color": winning_color,
+        "winning_number": winning_number,
+        "payouts": payout_data,
+        "bot_winners": bot_winners,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    }
+
+    client = aioredis.from_url(settings.redis_url, decode_responses=True)
+    try:
+        channel = f"channel:round:{round_id}"
+        await client.publish(channel, json.dumps(payload))
+        logger.info("Published result for round %s: %s %d", round_id, winning_color, winning_number)
+    finally:
+        await client.aclose()
+
+
+async def _publish_new_round(
+    round_id: UUID, game_mode_id: UUID, period_number: str, timer: int, bot_count: int
+):
+    """Publish new_round message when a new round starts."""
+    payload = {
+        "type": "new_round",
+        "round_id": str(round_id),
+        "game_mode_id": str(game_mode_id),
+        "period_number": period_number,
+        "timer": timer,
+        "bot_count": bot_count,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    }
+
+    client = aioredis.from_url(settings.redis_url, decode_responses=True)
+    try:
+        channel = f"channel:round:{round_id}"
+        await client.publish(channel, json.dumps(payload))
+        logger.info("Published new_round for %s with timer %d seconds", round_id, timer)
+    finally:
+        await client.aclose()
+
+
 async def _advance_betting_rounds():
     """Find rounds whose betting timer has expired and resolve them."""
-    now = datetime.now(timezone.utc)
-    async with async_session_factory() as session:
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    async with celery_session() as session:
         result = await session.execute(
             select(GameRound).where(
                 GameRound.phase == RoundPhase.BETTING,
@@ -90,7 +162,7 @@ async def _advance_betting_rounds():
 
 async def _advance_resolution_rounds():
     """Find rounds in RESOLUTION phase, finalize them, and auto-start new rounds."""
-    async with async_session_factory() as session:
+    async with celery_session() as session:
         result = await session.execute(
             select(GameRound).where(GameRound.phase == RoundPhase.RESOLUTION)
         )
@@ -117,6 +189,7 @@ async def _advance_resolution_rounds():
                     for bp in bot_payouts
                 ]
 
+                # First send phase change to RESULT
                 await _publish_round_state(
                     finalized.id,
                     RoundPhase.RESULT.value,
@@ -125,8 +198,15 @@ async def _advance_resolution_rounds():
                         "winning_number": finalized.winning_number,
                         "total_payouts": str(finalized.total_payouts),
                         "period_number": finalized.period_number,
-                        "bot_winners": bot_payout_data,
                     },
+                )
+
+                # Then send a separate result message with player payouts
+                await _publish_result_message(
+                    finalized.id,
+                    finalized.winning_color,
+                    finalized.winning_number,
+                    bot_payout_data,
                 )
                 logger.info("Finalized round %s with %d bot winners", finalized.id, len(bot_payouts))
 
@@ -155,14 +235,20 @@ async def _advance_resolution_rounds():
                 # Get bot stats for display
                 bot_stats = bot_service.get_bot_stats_for_round(new_round.id)
 
-                await _publish_round_state(
+                # Calculate initial timer for the new round
+                now_utc = datetime.now(timezone.utc)
+                betting_ends_at = new_round.betting_ends_at
+                if betting_ends_at.tzinfo is None:
+                    betting_ends_at = betting_ends_at.replace(tzinfo=timezone.utc)
+                initial_timer = max(0, int((betting_ends_at - now_utc).total_seconds()))
+
+                # Send new_round message
+                await _publish_new_round(
                     new_round.id,
-                    RoundPhase.BETTING.value,
-                    {
-                        "game_mode_id": str(new_round.game_mode_id),
-                        "period_number": new_round.period_number,
-                        "bot_count": bot_stats["total_bots"],
-                    },
+                    new_round.game_mode_id,
+                    new_round.period_number,
+                    initial_timer,
+                    bot_stats["total_bots"],
                 )
                 logger.info(
                     "Started new round %s for game mode %s with %d bots",
@@ -173,6 +259,48 @@ async def _advance_resolution_rounds():
             except Exception:
                 await session.rollback()
                 logger.exception("Failed to finalize round %s", game_round.id)
+
+
+async def _broadcast_timer_ticks():
+    """Broadcast timer_tick messages for all active BETTING rounds."""
+    now = datetime.now(timezone.utc)
+    async with celery_session() as session:
+        result = await session.execute(
+            select(GameRound).where(GameRound.phase == RoundPhase.BETTING)
+        )
+        rounds = result.scalars().all()
+
+        client = aioredis.from_url(settings.redis_url, decode_responses=True)
+        try:
+            for game_round in rounds:
+                # Ensure betting_ends_at is timezone-aware
+                betting_ends_at = game_round.betting_ends_at
+                if betting_ends_at.tzinfo is None:
+                    betting_ends_at = betting_ends_at.replace(tzinfo=timezone.utc)
+
+                remaining = (betting_ends_at - now).total_seconds()
+                remaining_seconds = max(0, int(remaining))
+
+                payload = {
+                    "type": "timer_tick",
+                    "round_id": str(game_round.id),
+                    "remaining": remaining_seconds,
+                    "timestamp": now.isoformat(),
+                }
+
+                channel = f"channel:round:{game_round.id}"
+                await client.publish(channel, json.dumps(payload))
+        finally:
+            await client.aclose()
+
+
+@celery_app.task(name="app.tasks.game_tasks.broadcast_timer_updates")
+def broadcast_timer_updates():
+    """Periodic task that broadcasts timer_tick messages every second.
+
+    This allows the frontend to update countdown timers in real-time.
+    """
+    _run_async(_broadcast_timer_ticks())
 
 
 @celery_app.task(name="app.tasks.game_tasks.advance_game_round")

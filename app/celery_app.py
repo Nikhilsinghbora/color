@@ -61,6 +61,10 @@ celery_app.conf.update(
             "task": "app.tasks.game_tasks.advance_game_round",
             "schedule": 3.0,  # every 3 seconds
         },
+        "broadcast-timer-updates": {
+            "task": "app.tasks.game_tasks.broadcast_timer_updates",
+            "schedule": 1.0,  # every 1 second for real-time countdown
+        },
         "reset-deposit-limits": {
             "task": "app.tasks.maintenance_tasks.reset_deposit_limits",
             "schedule": 60.0,  # every 60 seconds
@@ -76,5 +80,17 @@ celery_app.conf.update(
     },
 )
 
-# Auto-discover tasks in app/tasks/ package
-celery_app.autodiscover_tasks(["app.tasks"])
+# Explicitly import all task modules so Celery registers them.
+# autodiscover_tasks(["app.tasks"]) looks for app/tasks/tasks.py by default,
+# which doesn't match our *_tasks.py naming convention.
+celery_app.autodiscover_tasks(
+    [
+        "app.tasks.game_tasks",
+        "app.tasks.wallet_tasks",
+        "app.tasks.email_tasks",
+        "app.tasks.report_tasks",
+        "app.tasks.maintenance_tasks",
+        "app.tasks.leaderboard_tasks",
+    ],
+    related_name=None,
+)

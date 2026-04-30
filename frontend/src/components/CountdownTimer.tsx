@@ -74,16 +74,17 @@ export default function CountdownTimer({
 
   return (
     <div
-      className="mx-auto flex flex-col items-center justify-center py-4"
+      className="mx-auto flex items-center justify-center py-4 relative"
       role="timer"
       aria-live="polite"
       aria-label={`${remainingSeconds} seconds remaining`}
+      style={{ width: '100px', height: '100px' }}
     >
       <svg
         width="100"
         height="100"
         viewBox="0 0 100 100"
-        className="-rotate-90"
+        className="-rotate-90 absolute inset-0"
         aria-hidden="true"
       >
         {/* Track circle */}
@@ -109,8 +110,8 @@ export default function CountdownTimer({
           style={{ transition: 'stroke-dashoffset 0.4s ease' }}
         />
       </svg>
-      {/* Centered seconds text — positioned over the SVG */}
-      <span className="-mt-16 text-2xl font-bold text-casino-text-primary">
+      {/* Centered seconds text — absolutely positioned in the center */}
+      <span className="absolute inset-0 flex items-center justify-center text-2xl font-bold text-casino-text-primary">
         {remainingSeconds}
       </span>
     </div>

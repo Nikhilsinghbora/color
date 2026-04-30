@@ -234,10 +234,10 @@ async def _get_player_email(player_id: str) -> str | None:
 
     from sqlalchemy import select
 
-    from app.models.base import async_session_factory
+    from app.models.base import celery_session
     from app.models.player import Player
 
-    async with async_session_factory() as session:
+    async with celery_session() as session:
         result = await session.execute(
             select(Player.email).where(Player.id == UUID(player_id))
         )

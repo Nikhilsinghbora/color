@@ -16,10 +16,20 @@ from sqlalchemy import select
 
 from app.celery_app import celery_app
 from app.config import settings
-from app.models.base import async_session_factory
+from app.models.base import celery_session, dispose_celery_engine
 from app.models.player import Transaction
 
 logger = logging.getLogger(__name__)
+
+
+def _run_async(coro):
+    """Run an async coroutine from synchronous Celery worker context."""
+    loop = asyncio.new_event_loop()
+    try:
+        return loop.run_until_complete(coro)
+    finally:
+        loop.run_until_complete(dispose_celery_engine())
+        loop.close()
 
 
 async def _process_withdrawal_async(transaction_id: str) -> None:
@@ -28,7 +38,7 @@ async def _process_withdrawal_async(transaction_id: str) -> None:
     Raises stripe.error.StripeError on Stripe failures so the caller
     can decide whether to retry.
     """
-    async with async_session_factory() as session:
+    async with celery_session() as session:
         result = await session.execute(
             select(Transaction).where(Transaction.id == UUID(transaction_id))
         )
@@ -49,7 +59,7 @@ async def _process_withdrawal_async(transaction_id: str) -> None:
 
 async def _mark_transaction_failed(transaction_id: str, error_msg: str) -> None:
     """Mark the transaction description as failed after retry exhaustion."""
-    async with async_session_factory() as session:
+    async with celery_session() as session:
         result = await session.execute(
             select(Transaction).where(Transaction.id == UUID(transaction_id))
         )
@@ -71,7 +81,7 @@ def process_withdrawal(self, transaction_id: str) -> None:
     Marks the transaction as failed after all retries are exhausted.
     """
     try:
-        asyncio.run(_process_withdrawal_async(transaction_id))
+        _run_async(_process_withdrawal_async(transaction_id))
     except stripe.error.StripeError as exc:
         logger.warning(
             "Stripe error for transaction %s (attempt %d/%d): %s",
@@ -88,4 +98,4 @@ def process_withdrawal(self, transaction_id: str) -> None:
                 transaction_id,
                 str(exc),
             )
-            asyncio.run(_mark_transaction_failed(transaction_id, str(exc)))
+            _run_async(_mark_transaction_failed(transaction_id, str(exc)))

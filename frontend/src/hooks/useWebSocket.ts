@@ -11,10 +11,7 @@ export function useWebSocket(roundId: string) {
   const clientRef = useRef<WSClient | null>(null);
   const statusRef = useRef<WSStatus>('disconnected');
 
-  const getToken = useCallback(() => {
-    return useAuthStore.getState().accessToken;
-  }, []);
-
+  // Message handler - doesn't need dependencies as it always reads latest state via getState()
   const handleMessage = useCallback((msg: WSIncomingMessage) => {
     const gameStore = useGameStore.getState();
     const uiStore = useUIStore.getState();
@@ -95,7 +92,7 @@ export function useWebSocket(roundId: string) {
       return;
     }
 
-    const token = getToken();
+    const token = useAuthStore.getState().accessToken;
     if (!token) {
       console.log('[useWebSocket] No token available, skipping connection');
       return;
@@ -132,7 +129,7 @@ export function useWebSocket(roundId: string) {
       client.disconnect();
       clientRef.current = null;
     };
-  }, [roundId, getToken, handleMessage]);
+  }, [roundId, handleMessage]); // Only depend on roundId and handleMessage (which is stable)
 
   const sendMessage = useCallback((message: WSOutgoingMessage) => {
     clientRef.current?.send(message);
