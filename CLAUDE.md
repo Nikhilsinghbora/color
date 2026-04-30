@@ -19,6 +19,17 @@ uv sync --all-extras
 # Run local server (uses SQLite + fakeredis)
 uv run run_local.py
 
+# IMPORTANT: Start Celery in a separate terminal for round advancement
+# Windows:
+start_celery.bat
+
+# Linux/Mac:
+./start_celery.sh
+
+# Or manually:
+# Terminal 2: uv run celery -A app.celery_app worker --loglevel=info --pool=solo --queues=game,wallet,email,reports,maintenance,analytics
+# Terminal 3: uv run celery -A app.celery_app beat --loglevel=info
+
 # Seed game modes (Win Go 30s, 1Min, 3Min, 5Min)
 python -m scripts.seed_data
 
@@ -154,6 +165,16 @@ celery -A app.celery_app events
 - Audit logs: view RNG audit trail and system events
 - Profit settings: configure house profit margin and winner pool split
 
+**9. Bot Service** (`app/services/bot_service.py`)
+- Generates 3-8 bots per round to simulate player activity
+- Bot bets are NOT saved to database (memory-only)
+- Bots place random bets on colors, numbers, and big/small
+- Bot names from a pool of 20 distinct player names
+- Bots appear in winner lists if they win
+- Bot payouts calculated with same 2% service fee
+- Bot data cleared after round completes to free memory
+- Integrated into Celery tasks for automatic generation
+
 ### Data Flow
 
 **Placing a Bet**:
@@ -171,14 +192,18 @@ celery -A app.celery_app events
    - Publish to Redis: `channel:round:{round_id}` with phase=RESOLUTION
 2. RESOLUTION → RESULT (immediately after)
    - Calculate profit allocation (house profit vs winner pool)
-   - Calculate all winner payouts based on odds
+   - Calculate all winner payouts based on odds (real players only)
    - If payouts exceed winner pool, reduce proportionally
    - Credit winners with adjusted amounts
    - Record profit details in round (`house_profit`, `total_payout_pool`, `payout_reduced`)
    - Flag round for review if payouts were reduced
-   - Create Payout records
-   - Publish to Redis: phase=RESULT
+   - Create Payout records (real players only)
+   - Calculate bot payouts (memory-only, for display)
+   - Publish to Redis: phase=RESULT with bot_winners list
+   - Clear bot data for completed round
 3. Auto-start new round for same game mode
+   - Generate 3-8 bot bets for new round
+   - Publish bot_count in new_round message
 
 **WebSocket Broadcast**:
 - Celery publishes state to Redis pub/sub

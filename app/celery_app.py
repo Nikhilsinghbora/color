@@ -6,15 +6,31 @@ and Celery Beat schedule for all periodic tasks.
 Requirements: 1.1, 1.3, 1.4, 13.6
 """
 
+import ssl
+
 from celery import Celery
 from celery.schedules import crontab
 
 from app.config import settings
 
+# Configure Redis URL with SSL options if using rediss://
+redis_url = settings.redis_url
+broker_use_ssl = None
+redis_backend_use_ssl = None
+
+if redis_url.startswith("rediss://"):
+    # Configure SSL for secure Redis connections (Upstash, etc.)
+    broker_use_ssl = {
+        "ssl_cert_reqs": ssl.CERT_NONE,  # Accept self-signed certs
+    }
+    redis_backend_use_ssl = {
+        "ssl_cert_reqs": ssl.CERT_NONE,
+    }
+
 celery_app = Celery(
     "color_prediction",
-    broker=settings.redis_url,
-    backend=settings.redis_url,
+    broker=redis_url,
+    backend=redis_url,
 )
 
 celery_app.conf.update(
@@ -24,6 +40,9 @@ celery_app.conf.update(
     result_serializer="json",
     timezone="UTC",
     enable_utc=True,
+    # SSL configuration for Redis
+    broker_use_ssl=broker_use_ssl,
+    redis_backend_use_ssl=redis_backend_use_ssl,
     # Task routing to dedicated queues
     task_routes={
         "app.tasks.wallet_tasks.*": {"queue": "wallet"},

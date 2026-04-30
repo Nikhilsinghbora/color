@@ -20,8 +20,9 @@ from sqlalchemy import select
 from app.celery_app import celery_app
 from app.config import settings
 from app.models.base import async_session_factory
-from app.models.game import GameRound, RoundPhase
+from app.models.game import GameMode, GameRound, RoundPhase
 from app.services import game_engine
+from app.services.bot_service import bot_service
 
 logger = logging.getLogger(__name__)
 
@@ -99,6 +100,23 @@ async def _advance_resolution_rounds():
             try:
                 finalized = await game_engine.finalize_round(session, game_round.id)
                 await session.commit()
+
+                # Calculate bot payouts (not saved to DB, just for display)
+                bot_payouts = bot_service.calculate_bot_payouts(
+                    finalized.id,
+                    finalized.winning_number,
+                    finalized.winning_color,
+                )
+
+                # Convert bot payouts to display format
+                bot_payout_data = [
+                    {
+                        "bot_name": bp.bot_name,
+                        "amount": str(bp.amount),
+                    }
+                    for bp in bot_payouts
+                ]
+
                 await _publish_round_state(
                     finalized.id,
                     RoundPhase.RESULT.value,
@@ -107,9 +125,13 @@ async def _advance_resolution_rounds():
                         "winning_number": finalized.winning_number,
                         "total_payouts": str(finalized.total_payouts),
                         "period_number": finalized.period_number,
+                        "bot_winners": bot_payout_data,
                     },
                 )
-                logger.info("Finalized round %s", finalized.id)
+                logger.info("Finalized round %s with %d bot winners", finalized.id, len(bot_payouts))
+
+                # Clear bot data for this round to free memory
+                bot_service.clear_round_bots(finalized.id)
 
                 # Auto-start a new round for the same game mode (≤5s delay).
                 # The delay is handled by the periodic task interval; the new
@@ -117,18 +139,36 @@ async def _advance_resolution_rounds():
                 # tick fires.
                 new_round = await game_engine.start_round(session, finalized.game_mode_id)
                 await session.commit()
+
+                # Generate bot bets for the new round
+                mode_result = await session.execute(
+                    select(GameMode).where(GameMode.id == new_round.game_mode_id)
+                )
+                game_mode = mode_result.scalar_one()
+
+                # Create odds map from game mode
+                odds_map = {opt.color: opt.odds for opt in game_mode.odds}
+
+                # Generate bot bets
+                bot_bets = bot_service.generate_bots_for_round(new_round.id, odds_map)
+
+                # Get bot stats for display
+                bot_stats = bot_service.get_bot_stats_for_round(new_round.id)
+
                 await _publish_round_state(
                     new_round.id,
                     RoundPhase.BETTING.value,
                     {
                         "game_mode_id": str(new_round.game_mode_id),
                         "period_number": new_round.period_number,
+                        "bot_count": bot_stats["total_bots"],
                     },
                 )
                 logger.info(
-                    "Started new round %s for game mode %s",
+                    "Started new round %s for game mode %s with %d bots",
                     new_round.id,
                     new_round.game_mode_id,
+                    bot_stats["total_bots"],
                 )
             except Exception:
                 await session.rollback()

@@ -157,11 +157,13 @@ class WebSocketManager:
         try:
             from app.models.base import async_session_factory
             from app.services import game_engine
+            from app.services.bot_service import bot_service
 
             async with async_session_factory() as session:
                 state = await game_engine.get_round_state(session, round_id)
 
             total_players = self.get_round_connection_count(round_id)
+            bot_stats = bot_service.get_bot_stats_for_round(round_id)
 
             now = datetime.now(timezone.utc)
             remaining = (state.betting_ends_at - now).total_seconds()
@@ -179,8 +181,8 @@ class WebSocketManager:
                 "resolved_at": state.resolved_at.isoformat() if state.resolved_at else None,
                 "completed_at": state.completed_at.isoformat() if state.completed_at else None,
                 "timer": remaining_seconds,
-                "total_players": total_players,
-                "total_pool": str(state.total_bets),
+                "total_players": total_players + bot_stats["total_bots"],
+                "total_pool": str(state.total_bets + bot_stats["total_bet_amount"]),
                 "period_number": state.period_number,
             }
             await websocket.send_json(payload)
