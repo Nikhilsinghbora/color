@@ -45,6 +45,21 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     from app.services.ws_manager import ws_manager
 
     # --- Startup ---
+
+    # Create tables if they don't exist (safe for fresh databases like Supabase).
+    # Uses checkfirst=True so existing tables are skipped.
+    from app.models.base import Base
+    # Import all models so they register with Base.metadata
+    import app.models.game  # noqa: F401
+    import app.models.player  # noqa: F401
+    import app.models.audit  # noqa: F401
+    import app.models.rng  # noqa: F401
+    import app.models.social  # noqa: F401
+    import app.models.responsible_gambling  # noqa: F401
+
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    logger.info("Database tables verified (created if missing)")
     # Initialise Redis connection pool (Requirement 13.5)
     redis_pool = aioredis.ConnectionPool.from_url(
         settings.redis_url, decode_responses=True,

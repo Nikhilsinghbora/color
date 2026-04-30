@@ -35,7 +35,7 @@ class Settings(BaseSettings):
     # CORS
     cors_origins: list[str] = ["http://localhost:3000"]
 
-    model_config = {"env_prefix": "APP_", "env_file": ".env"}
+    model_config = {"env_prefix": "APP_", "env_file": ".env", "extra": "ignore"}
 
     @property
     def cors_allowed_origins(self) -> list[str]:

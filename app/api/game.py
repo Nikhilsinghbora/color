@@ -56,7 +56,7 @@ async def list_modes(db: AsyncSession = Depends(get_db)):
 async def get_game_history(
     page: int = Query(default=1, ge=1),
     size: int = Query(default=10, ge=1, le=100),
-    mode_id: UUID | None = Query(default=None),
+    mode_id: str | None = Query(default=None),
     db: AsyncSession = Depends(get_db),
 ):
     """Return paginated completed game rounds, most recent first.
@@ -66,8 +66,13 @@ async def get_game_history(
     # Base filter: only completed rounds
     base_filter = GameRound.phase == RoundPhase.RESULT
     filters = [base_filter]
-    if mode_id is not None:
-        filters.append(GameRound.game_mode_id == mode_id)
+    if mode_id:
+        try:
+            from uuid import UUID as _UUID
+            parsed_mode_id = _UUID(mode_id)
+            filters.append(GameRound.game_mode_id == parsed_mode_id)
+        except ValueError:
+            pass  # Invalid UUID — ignore the filter
 
     # Total count
     count_stmt = select(func.count()).select_from(GameRound).where(*filters)
