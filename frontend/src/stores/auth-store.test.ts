@@ -14,7 +14,8 @@ function makeJwt(payload: Record<string, unknown>): string {
 
 describe('Auth Store', () => {
   beforeEach(() => {
-    // Reset store to initial state before each test
+    // Clear localStorage and reset store to initial state before each test
+    localStorage.clear();
     useAuthStore.getState().clearTokens();
   });
 
@@ -119,5 +120,63 @@ describe('Auth Store', () => {
 
     const state = useAuthStore.getState();
     expect(state.player?.id).toBe('id+special/chars');
+  });
+
+  it('persists tokens to localStorage', () => {
+    const access = makeJwt({
+      sub: 'user-123',
+      email: 'test@example.com',
+      username: 'testplayer',
+      is_admin: false,
+    });
+    const refresh = 'refresh-token-abc';
+
+    useAuthStore.getState().setTokens(access, refresh);
+
+    // Check that localStorage contains the persisted data
+    const stored = localStorage.getItem('auth-storage');
+    expect(stored).toBeTruthy();
+    const parsed = JSON.parse(stored!);
+    expect(parsed.state.accessToken).toBe(access);
+    expect(parsed.state.refreshToken).toBe(refresh);
+    expect(parsed.state.isAuthenticated).toBe(true);
+  });
+
+  it('restores tokens from localStorage on rehydration', () => {
+    const access = makeJwt({
+      sub: 'restored-user',
+      email: 'restored@example.com',
+      username: 'restoredplayer',
+      is_admin: false,
+    });
+    const refresh = 'restored-refresh-token';
+
+    // Manually set localStorage to simulate a persisted state
+    const persistedState = {
+      state: {
+        accessToken: access,
+        refreshToken: refresh,
+        isAuthenticated: true,
+      },
+      version: 0,
+    };
+    localStorage.setItem('auth-storage', JSON.stringify(persistedState));
+
+    // Force store rehydration by calling persist.rehydrate()
+    useAuthStore.persist.rehydrate();
+
+    // Give rehydration time to complete (it's async)
+    return new Promise<void>((resolve) => {
+      setTimeout(() => {
+        const state = useAuthStore.getState();
+        expect(state.accessToken).toBe(access);
+        expect(state.refreshToken).toBe(refresh);
+        expect(state.isAuthenticated).toBe(true);
+        // Player should be decoded from the token
+        expect(state.player?.id).toBe('restored-user');
+        expect(state.player?.email).toBe('restored@example.com');
+        resolve();
+      }, 100);
+    });
   });
 });

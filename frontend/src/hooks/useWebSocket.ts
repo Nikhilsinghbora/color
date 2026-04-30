@@ -90,10 +90,18 @@ export function useWebSocket(roundId: string) {
   }, []);
 
   useEffect(() => {
-    if (!roundId) return;
+    if (!roundId) {
+      console.log('[useWebSocket] No roundId, skipping connection');
+      return;
+    }
 
     const token = getToken();
-    if (!token) return;
+    if (!token) {
+      console.log('[useWebSocket] No token available, skipping connection');
+      return;
+    }
+
+    console.log('[useWebSocket] Connecting with roundId:', roundId, 'token:', token.substring(0, 20) + '...');
 
     const client = createWSClient({
       onTokenExpired: async () => {

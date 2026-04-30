@@ -4,22 +4,37 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Color Prediction Game Backend — a FastAPI-based real-time gaming platform with WebSocket synchronization, Celery task scheduling, and Redis pub/sub for horizontal scaling.
+Color Prediction Game — a full-stack real-time gaming platform with FastAPI backend and Next.js frontend. Features WebSocket synchronization, Celery task scheduling, and Redis pub/sub for horizontal scaling.
 
-**Stack**: FastAPI + SQLAlchemy 2.0 (async) + Celery + Redis + PostgreSQL
+**Backend Stack**: FastAPI + SQLAlchemy 2.0 (async) + Celery + Redis + PostgreSQL  
+**Frontend Stack**: Next.js + React + Zustand + Tailwind CSS
 
 ## Development Commands
 
 ### Local Development (No Docker Required)
 ```bash
-# Install dependencies
+# Backend setup
 uv sync --all-extras
 
 # Run local server (uses SQLite + fakeredis)
 uv run run_local.py
 
+# Seed game modes (Win Go 30s, 1Min, 3Min, 5Min)
+python -m scripts.seed_data
+
+# Create admin user (optional, for admin dashboard access)
+python -m scripts.create_admin --email admin@example.com --username admin --password yourpassword
+# Or use defaults: python -m scripts.create_admin
+
 # Access API docs
 # http://localhost:8000/api/docs
+
+# Frontend setup
+cd frontend
+npm install
+npm run dev
+# http://localhost:3000
+# Admin dashboard: http://localhost:3000/admin
 ```
 
 ### Testing
@@ -111,10 +126,13 @@ celery -A app.celery_app events
 **5. Payout Calculator** (`app/services/payout_calculator.py`)
 - Uses `Decimal` (never float) for fixed-point arithmetic
 - `calculate_round_payouts()`: determines winners based on winning number
+- **2% service fee** deducted from all winning payouts: `payout = (bet × 0.98) × odds`
 - Number-to-color mapping:
-  - Green: {0,1,3,5,7,9}
-  - Red: {2,4,6,8}
-  - Violet: {0,5} (dual payouts possible for 0 and 5)
+  - Green: {0,1,3,5,7,9} (2x odds)
+  - Red: {2,4,6,8} (2x odds)
+  - Violet: {0,5} (4.8x odds, dual payouts possible)
+- Big/Small bets: Big {5-9}, Small {0-4} (both 2x odds)
+- Number bets: 0–9 (9.6x odds)
 
 **6. Profit Service** (`app/services/profit_service.py`)
 - Manages house profit margin and winner pool distribution
@@ -127,6 +145,14 @@ celery -A app.celery_app events
 **7. RNG Engine** (`app/services/rng_engine.py`)
 - Generates winning number (0-9) and color
 - Creates audit trail in `rng_audit` table for compliance
+
+**8. Admin Dashboard** (`frontend/src/app/admin/*`)
+- Requires `is_admin=True` on player account
+- Dashboard metrics: active players, total bets, payouts, revenue
+- Player management: suspend/ban players
+- Game configuration: update odds, bet limits, round duration
+- Audit logs: view RNG audit trail and system events
+- Profit settings: configure house profit margin and winner pool split
 
 ### Data Flow
 
@@ -174,14 +200,33 @@ app/
 ├── celery_app.py # Celery config with task routing and Beat schedule
 └── main.py       # Application factory
 
+frontend/
+├── src/
+│   ├── app/          # Next.js pages and routing
+│   ├── components/   # React components (WalletCard, BetControls, GameHistory, etc.)
+│   ├── hooks/        # Custom hooks (useWebSocket, useAuth, etc.)
+│   ├── stores/       # Zustand state stores (gameStore, authStore, etc.)
+│   ├── lib/          # API client, sound manager, utilities
+│   └── types/        # TypeScript type definitions
+└── package.json
+
 tests/
 ├── unit/         # Unit tests (mock external dependencies)
 ├── integration/  # Integration tests (Redis, PostgreSQL, Celery)
 ├── properties/   # Property-based tests using Hypothesis
 └── smoke/        # Infrastructure smoke tests
+
+scripts/
+└── seed_data.py  # Seeds initial game modes (Win Go 30s, 1Min, 3Min, 5Min)
 ```
 
 ## Key Conventions
+
+### Token Persistence (Frontend)
+- Auth tokens are persisted to localStorage using Zustand's persist middleware
+- Tokens survive page refreshes and are automatically rehydrated on app load
+- WebSocket connections access tokens from the auth store after rehydration
+- Player info is decoded from JWT and restored on rehydration via `onRehydrateStorage` callback
 
 ### Decimal Arithmetic
 All monetary calculations use Python's `Decimal` type, never float. Always quantize to `Decimal("0.01")` for two-decimal precision.
@@ -235,14 +280,19 @@ Tasks are routed to dedicated queues (see `app/celery_app.py`):
 
 - **Betting Phase Check**: Always validate `round.phase == RoundPhase.BETTING` before accepting bets
 - **Odds Snapshot**: Bets store `odds_at_placement` (not dynamic) for fairness
+- **Service Fee**: 2% service fee is deducted from ALL winning payouts, not from bets
 - **Number Bets**: Single digit strings "0"–"9" are valid bet choices alongside color names
 - **Dual Payouts**: Numbers 0 and 5 trigger both violet and green payouts
+- **Big/Small Overlap**: Big/Small bets also have color associations (validate properly)
 - **Profit Management**: Winners may receive less than calculated payouts if total exceeds winner pool
 - **Payout Reduction**: Reductions are proportional (all winners get same reduction ratio)
 - **Flagged Rounds**: Rounds with `payout_reduced=true` are automatically flagged for review
 - **Redis Pool**: Access via `get_redis_pool()` from `app/main.py` (don't create new pools)
 - **Celery Context**: Use `_run_async()` helper in Celery tasks to run async functions
 - **Migration Autogenerate**: Always review generated migrations; Alembic can't detect all schema changes
+- **Frontend WebSocket**: Must pass JWT token as query param: `ws://host/ws/game/{round_id}?token=JWT`
+- **Token Persistence**: Tokens are stored in localStorage (`auth-storage` key) and survive page refreshes
+- **WebSocket on Login**: WebSocket connects automatically when you log in because tokens are set synchronously in Zustand state
 
 ## Debugging
 

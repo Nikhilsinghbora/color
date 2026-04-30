@@ -95,6 +95,12 @@ export default function GameViewPage() {
 
   const balance = useWalletStore((s) => s.balance);
   const updateBalance = useWalletStore((s) => s.updateBalance);
+  const fetchBalance = useWalletStore((s) => s.fetchBalance);
+
+  // ── Fetch wallet balance on mount ──
+  useEffect(() => {
+    fetchBalance();
+  }, [fetchBalance]);
 
   // ── Bet sheet state ──
   const showBetSheet = useGameStore((s) => s.showBetSheet);

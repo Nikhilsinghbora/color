@@ -74,20 +74,64 @@ python -m scripts.seed_data
 
 This creates 4 game modes: Win Go 30s, 1Min, 3Min, 5Min.
 
-### 6. Install frontend dependencies
+### 6. Create an admin user (optional)
+
+To access the admin dashboard, create an admin account:
+
+```bash
+python -m scripts.create_admin --email admin@example.com --username admin --password yourpassword
+```
+
+Or use defaults (email: `admin@example.com`, password: `admin123`):
+
+```bash
+python -m scripts.create_admin
+```
+
+**Current Admin Account** (for development):
+- **Email**: `admin@boranikhilsingh.com`
+- **Username**: `boranikhilsingh`
+- **Password**: `Nikhil@123`
+- **Balance**: $1,010,000.00
+
+> ⚠️ **Security Warning**: Change these credentials before deploying to production!
+
+### 7. Install frontend dependencies
 
 ```bash
 cd frontend
 npm install
 ```
 
-### 7. Start the frontend
+### 8. Start the frontend
 
 ```bash
 npm run dev
 ```
 
 Frontend runs on `http://localhost:3000`.
+
+**Admin Dashboard**: `http://localhost:3000/admin` (requires admin account)
+
+---
+
+## 🔐 Development Accounts
+
+### Admin Account
+- **Email**: `admin@boranikhilsingh.com`
+- **Username**: `boranikhilsingh`
+- **Password**: `Nikhil@123`
+- **Balance**: $1,010,000.00
+- **Access**: Full admin dashboard access at `/admin`
+
+### Regular User Account
+- **Email**: `nikhilsinghbora17@gmail.com`
+- **Username**: `nikhilsinghbora`
+- **Password**: *(Set during registration)*
+- **Balance**: $1,000,000.00
+- **Access**: Game interface at `/game`
+
+> ⚠️ **Important**: These accounts are for development/testing only. Remove or change credentials before production deployment!
 
 ---
 
@@ -207,6 +251,37 @@ celery -A app.celery_app worker --loglevel=info
 
 ```bash
 celery -A app.celery_app beat --loglevel=info
+```
+
+---
+
+## 🛠️ Utility Scripts
+
+### Seed Game Modes
+```bash
+python -m scripts.seed_data
+```
+Creates 4 game modes: Win Go 30s, 1Min, 3Min, 5Min
+
+### Create Admin User
+```bash
+# With custom credentials
+python -m scripts.create_admin --email admin@example.com --username admin --password yourpassword
+
+# With defaults
+python -m scripts.create_admin
+```
+
+### Add Currency to Users
+```bash
+# Add to all users
+python -m scripts.add_currency --amount 1000000 --confirm
+
+# Add to specific user by email
+python -m scripts.add_currency --amount 100000 --email user@example.com --confirm
+
+# Add to specific user by username
+python -m scripts.add_currency --amount 50000 --username myusername --confirm
 ```
 
 ---
