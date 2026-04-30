@@ -53,18 +53,22 @@ export default function GameViewPage() {
 
     async function fetchModes() {
       try {
+        console.log('[GamePage] Fetching game modes...');
         const { data } = await apiClient.get<GameMode[]>('/game/modes');
         if (cancelled) return;
 
         const activeModes = data.filter((m) => m.is_active);
+        console.log('[GamePage] Fetched game modes:', activeModes.length, 'active modes');
         setGameModes(activeModes);
 
         // Set the first mode as active if none is currently set
         const currentActiveId = useGameStore.getState().activeGameModeId;
         if (!currentActiveId && activeModes.length > 0) {
+          console.log('[GamePage] Setting active mode to:', activeModes[0].name, 'with round:', activeModes[0].active_round_id);
           setActiveGameMode(activeModes[0].id);
         }
-      } catch {
+      } catch (error) {
+        console.error('[GamePage] Failed to fetch game modes:', error);
         // Silently fail — the page will use the fallback round ID
       }
     }
@@ -72,6 +76,11 @@ export default function GameViewPage() {
     fetchModes();
     return () => { cancelled = true; };
   }, [setGameModes, setActiveGameMode]);
+
+  // Log round ID changes for debugging
+  useEffect(() => {
+    console.log('[GamePage] Round ID updated:', roundId, 'Active mode:', activeMode?.name);
+  }, [roundId, activeMode]);
 
   // ── Handle game mode switching ──
   const handleModeChange = useCallback(

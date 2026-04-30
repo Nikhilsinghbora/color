@@ -91,12 +91,17 @@ export function useWebSocket(roundId: string) {
   }, []);
 
   useEffect(() => {
+    console.log('[useWebSocket] Effect triggered with roundId:', roundId);
+
     if (!roundId) {
       console.log('[useWebSocket] No roundId, skipping connection');
       return;
     }
 
     const token = useAuthStore.getState().accessToken;
+    const isAuthenticated = useAuthStore.getState().isAuthenticated;
+    console.log('[useWebSocket] Auth state - isAuthenticated:', isAuthenticated, 'hasToken:', !!token);
+
     if (!token) {
       console.log('[useWebSocket] No token available, skipping connection');
       return;

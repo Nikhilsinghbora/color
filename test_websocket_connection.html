@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>WebSocket Connection Test</title>
+</head>
+<body>
+    <h1>WebSocket Connection Test</h1>
+    <div id="status">Connecting...</div>
+    <div id="logs"></div>
+
+    <script>
+        const logs = document.getElementById('logs');
+        const status = document.getElementById('status');
+
+        function log(message) {
+            const p = document.createElement('p');
+            p.textContent = `[${new Date().toISOString()}] ${message}`;
+            logs.appendChild(p);
+            console.log(message);
+        }
+
+        // Test token (you'll need to replace this with a real token from your app)
+        const testToken = 'YOUR_TOKEN_HERE';
+        const testRoundId = '77826c2f-499d-452e-9b23-2579564d0641'; // From the API response
+
+        const wsUrl = `ws://localhost:8000/ws/game/${testRoundId}?token=${testToken}`;
+
+        log(`Attempting to connect to: ${wsUrl.replace(/token=.*/, 'token=***')}`);
+
+        try {
+            const ws = new WebSocket(wsUrl);
+
+            ws.onopen = () => {
+                status.textContent = 'Connected ✓';
+                status.style.color = 'green';
+                log('WebSocket connection established!');
+            };
+
+            ws.onmessage = (event) => {
+                log(`Received: ${event.data}`);
+            };
+
+            ws.onerror = (error) => {
+                status.textContent = 'Error ✗';
+                status.style.color = 'red';
+                log(`WebSocket error: ${error}`);
+            };
+
+            ws.onclose = (event) => {
+                status.textContent = 'Disconnected';
+                status.style.color = 'orange';
+                log(`WebSocket closed: code=${event.code}, reason=${event.reason}`);
+            };
+        } catch (error) {
+            status.textContent = 'Failed ✗';
+            status.style.color = 'red';
+            log(`Exception: ${error.message}`);
+        }
+    </script>
+</body>
+</html>
