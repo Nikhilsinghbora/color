@@ -166,8 +166,23 @@ class WebSocketManager:
             bot_stats = bot_service.get_bot_stats_for_round(round_id)
 
             now = datetime.now(timezone.utc)
-            remaining = (state.betting_ends_at - now).total_seconds()
+
+            # Ensure betting_ends_at is timezone-aware
+            betting_ends_at = state.betting_ends_at
+            if betting_ends_at.tzinfo is None:
+                betting_ends_at = betting_ends_at.replace(tzinfo=timezone.utc)
+
+            remaining = (betting_ends_at - now).total_seconds()
             remaining_seconds = max(0, int(remaining))
+
+            # Ensure resolved_at and completed_at are also timezone-aware
+            resolved_at = state.resolved_at
+            if resolved_at and resolved_at.tzinfo is None:
+                resolved_at = resolved_at.replace(tzinfo=timezone.utc)
+
+            completed_at = state.completed_at
+            if completed_at and completed_at.tzinfo is None:
+                completed_at = completed_at.replace(tzinfo=timezone.utc)
 
             payload = {
                 "type": "round_state",
@@ -177,9 +192,9 @@ class WebSocketManager:
                 "winning_color": state.winning_color,
                 "total_bets": str(state.total_bets),
                 "total_payouts": str(state.total_payouts),
-                "betting_ends_at": state.betting_ends_at.isoformat(),
-                "resolved_at": state.resolved_at.isoformat() if state.resolved_at else None,
-                "completed_at": state.completed_at.isoformat() if state.completed_at else None,
+                "betting_ends_at": betting_ends_at.isoformat(),
+                "resolved_at": resolved_at.isoformat() if resolved_at else None,
+                "completed_at": completed_at.isoformat() if completed_at else None,
                 "timer": remaining_seconds,
                 "total_players": total_players + bot_stats["total_bots"],
                 "total_pool": str(state.total_bets + bot_stats["total_bet_amount"]),
