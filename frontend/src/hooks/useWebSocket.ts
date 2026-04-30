@@ -29,6 +29,8 @@ export function useWebSocket(roundId: string) {
         if (msg.period_number) {
           gameStore.setPeriodNumber(msg.period_number);
         }
+        // Also update the timer immediately so countdown starts
+        gameStore.updateTimer(msg.timer);
         break;
 
       case 'timer_tick':
@@ -59,6 +61,8 @@ export function useWebSocket(roundId: string) {
         if (msg.period_number) {
           gameStore.setPeriodNumber(msg.period_number);
         }
+        // Also update the timer immediately so countdown starts
+        gameStore.updateTimer(msg.timer);
         break;
 
       case 'bet_update': {

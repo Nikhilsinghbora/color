@@ -259,4 +259,7 @@ async def place_bet(
             },
         )
 
+    # Broadcast bet update to all connected clients
+    await game_engine.broadcast_bet_update(db, round_id)
+
     return BetResponse.model_validate(bet)

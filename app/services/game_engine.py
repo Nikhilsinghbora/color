@@ -375,3 +375,55 @@ async def get_round_state(session: AsyncSession, round_id: UUID) -> RoundState:
         completed_at=game_round.completed_at,
         period_number=game_round.period_number,
     )
+
+
+async def broadcast_bet_update(session: AsyncSession, round_id: UUID) -> None:
+    """Broadcast bet update message to all clients after a bet is placed.
+
+    This notifies clients that the total players count and total pool have changed.
+
+    Args:
+        session: Async database session.
+        round_id: The round that received a new bet.
+    """
+    import json
+    from datetime import datetime, timezone
+
+    import redis.asyncio as aioredis
+
+    from app.config import settings
+    from app.services.bot_service import bot_service
+
+    # Get current round state
+    result = await session.execute(
+        select(GameRound).where(GameRound.id == round_id)
+    )
+    game_round = result.scalar_one()
+
+    # Count real players who have bet on this round
+    from sqlalchemy import func
+
+    real_player_count_result = await session.execute(
+        select(func.count(func.distinct(Bet.player_id))).where(Bet.round_id == round_id)
+    )
+    real_player_count = real_player_count_result.scalar_one()
+
+    # Get bot stats for this round
+    bot_stats = bot_service.get_bot_stats_for_round(round_id)
+
+    # Prepare the bet_update message
+    payload = {
+        "type": "bet_update",
+        "round_id": str(round_id),
+        "total_players": real_player_count + bot_stats["total_bots"],
+        "total_pool": str(game_round.total_bets + bot_stats["total_bet_amount"]),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    }
+
+    # Publish to Redis pub/sub
+    client = aioredis.from_url(settings.redis_url, decode_responses=True)
+    try:
+        channel = f"channel:round:{round_id}"
+        await client.publish(channel, json.dumps(payload))
+    finally:
+        await client.aclose()
