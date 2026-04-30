@@ -67,9 +67,11 @@ class TestProperty15PayoutCalculationCorrectness:
     @given(bet_amount=st_bet_amount, odds=st_odds)
     def test_payout_equals_bet_times_odds_quantized(self, bet_amount, odds):
         """For any bet amount A and odds O, calculate_payout returns
-        (A * O).quantize(Decimal("0.01")) using Decimal arithmetic."""
+        (A * 0.98 * O).quantize(Decimal("0.01")) using Decimal arithmetic,
+        where 0.98 accounts for the 2% service fee."""
         result = calculate_payout(bet_amount, odds)
-        expected = (bet_amount * odds).quantize(Decimal("0.01"))
+        effective = bet_amount * (Decimal("1") - Decimal("0.02"))
+        expected = (effective * odds).quantize(Decimal("0.01"))
         assert result == expected
 
     @settings(max_examples=100)
@@ -262,7 +264,8 @@ class TestProperty4ColorBetPayoutCorrectnessWithDualColorNumbers:
         assert payout.is_winner is expected_winner
 
         if expected_winner:
-            expected_amount = (bet_amount * Decimal(str(color_odds))).quantize(
+            effective = bet_amount * (Decimal("1") - Decimal("0.02"))
+            expected_amount = (effective * Decimal(str(color_odds))).quantize(
                 Decimal("0.01")
             )
             assert payout.amount == expected_amount
@@ -376,7 +379,8 @@ class TestProperty3NumberBetPayoutCorrectness:
         assert payout.is_winner is expected_winner
 
         if expected_winner:
-            expected_amount = (bet_amount * Decimal(str(number_odds))).quantize(
+            effective = bet_amount * (Decimal("1") - Decimal("0.02"))
+            expected_amount = (effective * Decimal(str(number_odds))).quantize(
                 Decimal("0.01")
             )
             assert payout.amount == expected_amount

@@ -74,7 +74,7 @@ async def game_mode(session: AsyncSession) -> GameMode:
         name="Classic",
         mode_type="classic",
         color_options=["red", "green", "blue"],
-        odds={"red": 2.0, "green": 3.0, "blue": 5.0},
+        odds={"red": 2.0, "green": 3.0, "blue": 5.0, "violet": 4.8, "number": 9.6, "big": 2.0, "small": 2.0},
         min_bet=Decimal("1.00"),
         max_bet=Decimal("1000.00"),
         round_duration_seconds=30,

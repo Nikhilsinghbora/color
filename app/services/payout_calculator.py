@@ -4,7 +4,7 @@ All payout calculations use Python's Decimal type with quantize("0.01")
 to guarantee two-decimal-place precision.  Float arithmetic is never used.
 
 Functions:
-    calculate_payout      – single bet payout (bet_amount × odds)
+    calculate_payout      – single bet payout with service fee
     calculate_round_payouts – all payouts for a completed round
     check_reserve_threshold – flag rounds exceeding the reserve limit
 """
@@ -20,6 +20,19 @@ from app.config import settings
 from app.models.game import Bet, Payout
 from app.services.rng_engine import GREEN_WINNING_NUMBERS, RED_WINNING_NUMBERS, VIOLET_WINNING_NUMBERS
 
+# ---------------------------------------------------------------------------
+# Configurable constants
+# ---------------------------------------------------------------------------
+
+SERVICE_FEE_RATE: Decimal = Decimal("0.02")
+"""2% service fee deducted from bet amount before payout calculation."""
+
+BIG_NUMBERS: set[int] = {5, 6, 7, 8, 9}
+"""Numbers that qualify as "big" for big/small bets."""
+
+SMALL_NUMBERS: set[int] = {0, 1, 2, 3, 4}
+"""Numbers that qualify as "small" for big/small bets."""
+
 
 @dataclass
 class PayoutResult:
@@ -31,16 +44,36 @@ class PayoutResult:
 
 
 def calculate_payout(bet_amount: Decimal, odds: Decimal) -> Decimal:
-    """Calculate payout as bet_amount * odds, quantized to 2 decimal places.
+    """Calculate payout with service fee: (bet_amount × (1 - SERVICE_FEE_RATE)) × odds.
 
+    The service fee is deducted from the bet amount before multiplying by odds.
     Uses Decimal arithmetic exclusively — never float.
     """
-    return (bet_amount * odds).quantize(Decimal("0.01"))
+    effective_amount = bet_amount * (Decimal("1") - SERVICE_FEE_RATE)
+    return (effective_amount * odds).quantize(Decimal("0.01"))
 
 
 def _is_number_bet(color: str) -> bool:
     """Return True if the bet color field is a digit string ("0"–"9")."""
     return len(color) == 1 and color.isdigit()
+
+
+def _is_big_small_bet(color: str) -> bool:
+    """Return True if the bet color field is "big" or "small"."""
+    return color in ("big", "small")
+
+
+def _is_big_small_winner(bet_type: str, winning_number: int) -> bool:
+    """Determine if a big/small bet wins given the winning number.
+
+    "big" wins when winning_number is in {5, 6, 7, 8, 9}.
+    "small" wins when winning_number is in {0, 1, 2, 3, 4}.
+    """
+    if bet_type == "big":
+        return winning_number in BIG_NUMBERS
+    if bet_type == "small":
+        return winning_number in SMALL_NUMBERS
+    return False
 
 
 def _is_color_winner(bet_color: str, winning_number: int) -> bool:
@@ -81,7 +114,18 @@ async def calculate_round_payouts(
 
     payouts: list[PayoutResult] = []
     for bet in bets:
-        if _is_number_bet(bet.color):
+        if _is_big_small_bet(bet.color):
+            # Big/Small bet: winner determined by number range
+            is_winner = (
+                winning_number is not None
+                and _is_big_small_winner(bet.color, winning_number)
+            )
+            if is_winner:
+                bs_odds = Decimal(str(odds.get(bet.color, 0)))
+                payout_amount = calculate_payout(bet.amount, bs_odds)
+            else:
+                payout_amount = Decimal("0.00")
+        elif _is_number_bet(bet.color):
             # Number bet: winner iff the digit matches the winning number
             is_winner = (
                 winning_number is not None

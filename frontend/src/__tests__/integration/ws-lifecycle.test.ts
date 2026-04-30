@@ -104,6 +104,7 @@ describe('Integration: WebSocket Lifecycle', () => {
         case 'result':
           gs.setResult({
             winningColor: msg.winning_color,
+            winningNumber: msg.winning_number,
             playerPayouts: msg.payouts.map((p) => ({
               betId: p.bet_id,
               amount: p.amount,
@@ -154,6 +155,7 @@ describe('Integration: WebSocket Lifecycle', () => {
     ws.simulateMessage({
       type: 'result',
       winning_color: 'blue',
+      winning_number: 3,
       payouts: [{ bet_id: 'bet-1', amount: '200.00' }],
     });
     expect(useGameStore.getState().result?.winningColor).toBe('blue');

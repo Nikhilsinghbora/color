@@ -23,6 +23,31 @@
   --input: #e5e7eb;
   --ring: #6366f1;
   --radius: 0.5rem;
+
+  /* Casino betting colors */
+  --casino-green: #00C853;
+  --casino-green-foreground: #ffffff;
+  --casino-violet: #7C4DFF;
+  --casino-violet-foreground: #ffffff;
+  --casino-red: #FF1744;
+  --casino-red-foreground: #ffffff;
+
+  /* Casino gradient background */
+  --casino-gradient-from: #0d1b2a;
+  --casino-gradient-to: #1b0a2e;
+
+  /* Casino card surfaces */
+  --casino-card: rgba(255, 255, 255, 0.06);
+  --casino-card-border: rgba(255, 255, 255, 0.1);
+
+  /* Casino timer ring */
+  --casino-timer-track: rgba(255, 255, 255, 0.12);
+  --casino-timer-fill: #00C853;
+
+  /* Casino text on dark backgrounds — all meet 4.5:1 contrast on #0d1b2a */
+  --casino-text-primary: #f0f0f0;
+  --casino-text-secondary: #b0b8c8;
+  --casino-text-muted: #7a8599;
 }
 
 .dark {
@@ -73,10 +98,107 @@
   --color-ring: var(--ring);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+
+  /* Casino colors exposed to Tailwind utilities */
+  --color-casino-green: var(--casino-green);
+  --color-casino-green-foreground: var(--casino-green-foreground);
+  --color-casino-violet: var(--casino-violet);
+  --color-casino-violet-foreground: var(--casino-violet-foreground);
+  --color-casino-red: var(--casino-red);
+  --color-casino-red-foreground: var(--casino-red-foreground);
+  --color-casino-card: var(--casino-card);
+  --color-casino-card-border: var(--casino-card-border);
+  --color-casino-text-primary: var(--casino-text-primary);
+  --color-casino-text-secondary: var(--casino-text-secondary);
+  --color-casino-text-muted: var(--casino-text-muted);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+/* ─── Casino dark gradient background ─── */
+.casino-bg {
+  background: linear-gradient(180deg, var(--casino-gradient-from) 0%, var(--casino-gradient-to) 100%);
+  color: var(--casino-text-primary);
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+/* ─── Casino card surface ─── */
+.casino-card {
+  background: var(--casino-card);
+  border: 1px solid var(--casino-card-border);
+  border-radius: 0.75rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+}
+
+/* ─── Transition animation utilities ─── */
+.casino-transition {
+  transition: background-color 150ms ease, opacity 150ms ease, transform 150ms ease, box-shadow 150ms ease;
+}
+
+.casino-transition:hover:not(:disabled) {
+  filter: brightness(1.12);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+}
+
+.casino-transition:active:not(:disabled) {
+  transform: scale(0.96);
+}
+
+.casino-transition:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* ─── Betting button base styles ─── */
+.casino-btn-green {
+  background-color: var(--casino-green);
+  color: var(--casino-green-foreground);
+}
+
+.casino-btn-violet {
+  background-color: var(--casino-violet);
+  color: var(--casino-violet-foreground);
+}
+
+.casino-btn-red {
+  background-color: var(--casino-red);
+  color: var(--casino-red-foreground);
+}
+
+/* ─── Green+violet gradient for dual-color numbers (0 and 5) ─── */
+.casino-btn-green-violet {
+  background: linear-gradient(135deg, var(--casino-green) 50%, var(--casino-violet) 50%);
+  color: #ffffff;
+}
+
+/* ─── Announcement marquee animation ─── */
+@keyframes marquee {
+  0% {
+    transform: translateX(100%);
+  }
+  100% {
+    transform: translateX(-100%);
+  }
+}
+
+.announcement-marquee {
+  display: inline-block;
+  animation: marquee 15s linear infinite;
+}
+
+/* Pause marquee on hover for readability */
+.announcement-marquee:hover {
+  animation-play-state: paused;
+}
+
+/* Respect reduced-motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  .announcement-marquee {
+    animation: none;
+  }
 }

@@ -48,6 +48,7 @@ describe('useWebSocket', () => {
       placedBets: [],
       selectedBets: {},
       result: null,
+      showWinLossDialog: false,
     });
 
     useUIStore.setState({
@@ -102,6 +103,43 @@ describe('useWebSocket', () => {
     expect(state.timerRemaining).toBe(30);
   });
 
+  it('sets periodNumber from round_state message', () => {
+    renderHook(() => useWebSocket('round-1'));
+
+    act(() => {
+      messageHandler?.({
+        type: 'round_state',
+        phase: 'betting',
+        timer: 30,
+        round_id: 'round-1',
+        total_players: 5,
+        total_pool: '500.00',
+        period_number: '20250429100000001',
+      });
+    });
+
+    expect(useGameStore.getState().periodNumber).toBe('20250429100000001');
+  });
+
+  it('does not set periodNumber when round_state has no period_number', () => {
+    useGameStore.setState({ periodNumber: 'existing-pn' });
+    renderHook(() => useWebSocket('round-1'));
+
+    act(() => {
+      messageHandler?.({
+        type: 'round_state',
+        phase: 'betting',
+        timer: 30,
+        round_id: 'round-1',
+        total_players: 5,
+        total_pool: '500.00',
+      });
+    });
+
+    // periodNumber should remain unchanged (not overwritten with undefined)
+    expect(useGameStore.getState().periodNumber).toBe('existing-pn');
+  });
+
   it('dispatches timer_tick to game store', () => {
     renderHook(() => useWebSocket('round-1'));
 
@@ -138,6 +176,44 @@ describe('useWebSocket', () => {
     expect(result?.playerPayouts).toHaveLength(1);
   });
 
+  it('opens win/loss dialog on result when player had placed bets', () => {
+    // Set up placed bets before result arrives
+    useGameStore.setState({
+      placedBets: [
+        { id: 'bet-1', color: 'red', amount: '10.00', oddsAtPlacement: '2.0', potentialPayout: '20.00' },
+      ],
+    });
+
+    renderHook(() => useWebSocket('round-1'));
+
+    act(() => {
+      messageHandler?.({
+        type: 'result',
+        winning_color: 'red',
+        winning_number: 2,
+        payouts: [{ player_id: 'p1', bet_id: 'bet-1', amount: '19.60' }],
+      });
+    });
+
+    expect(useGameStore.getState().showWinLossDialog).toBe(true);
+  });
+
+  it('does not open win/loss dialog on result when player had no bets', () => {
+    // placedBets is empty by default from beforeEach
+    renderHook(() => useWebSocket('round-1'));
+
+    act(() => {
+      messageHandler?.({
+        type: 'result',
+        winning_color: 'red',
+        winning_number: 2,
+        payouts: [],
+      });
+    });
+
+    expect(useGameStore.getState().showWinLossDialog).toBe(false);
+  });
+
   it('dispatches new_round to game store', () => {
     renderHook(() => useWebSocket('round-1'));
 
@@ -149,6 +225,37 @@ describe('useWebSocket', () => {
     expect(state.currentRound?.roundId).toBe('round-2');
     expect(state.phase).toBe('betting');
     expect(state.timerRemaining).toBe(30);
+  });
+
+  it('sets periodNumber from new_round message', () => {
+    renderHook(() => useWebSocket('round-1'));
+
+    act(() => {
+      messageHandler?.({
+        type: 'new_round',
+        round_id: 'round-2',
+        timer: 30,
+        period_number: '20250429100000002',
+      });
+    });
+
+    expect(useGameStore.getState().periodNumber).toBe('20250429100000002');
+  });
+
+  it('clears periodNumber on new_round without period_number', () => {
+    useGameStore.setState({ periodNumber: 'old-pn' });
+    renderHook(() => useWebSocket('round-1'));
+
+    act(() => {
+      messageHandler?.({
+        type: 'new_round',
+        round_id: 'round-2',
+        timer: 30,
+      });
+    });
+
+    // resetRound clears periodNumber to null
+    expect(useGameStore.getState().periodNumber).toBeNull();
   });
 
   it('dispatches bet_update to game store', () => {

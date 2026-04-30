@@ -18,7 +18,15 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.rng import RNGAuditLog
-from app.services.rng_engine import RNGResult, generate_outcome, create_audit_entry
+from app.services.rng_engine import (
+    RNGResult,
+    generate_outcome,
+    create_audit_entry,
+    NUMBER_COLOR_MAP,
+    GREEN_WINNING_NUMBERS,
+    RED_WINNING_NUMBERS,
+    VIOLET_WINNING_NUMBERS,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -46,7 +54,11 @@ st_color_list = st.lists(
 
 
 class TestProperty12RNGUniformDistribution:
-    """**Validates: Requirements 5.2**"""
+    """**Validates: Requirements 5.2**
+
+    Updated: RNG now generates a winning number 0-9 and derives color from
+    NUMBER_COLOR_MAP. Distribution test validates uniform number distribution.
+    """
 
     @settings(
         max_examples=5,
@@ -54,34 +66,26 @@ class TestProperty12RNGUniformDistribution:
         suppress_health_check=[HealthCheck.function_scoped_fixture, HealthCheck.too_slow],
     )
     @given(
-        colors=st.lists(
-            st.sampled_from(["red", "green", "blue", "yellow", "purple", "orange"]),
-            min_size=2,
-            max_size=6,
-            unique=True,
-        ),
+        sample_size=st.just(100_000),
     )
-    def test_distribution_passes_chi_squared(self, colors):
-        """Over 100,000 outcomes the frequency of each color SHALL not deviate
-        from the expected frequency beyond what a chi-squared test at 99%
-        confidence allows.
+    def test_distribution_passes_chi_squared(self, sample_size):
+        """Over 100,000 outcomes the frequency of each winning number (0-9)
+        SHALL not deviate from the expected uniform frequency beyond what a
+        chi-squared test at 99% confidence allows.
 
         We use 100,000 samples to reduce variance and max_examples=5 with
         Bonferroni-corrected threshold (0.01/5 = 0.002) to control the
         family-wise error rate across multiple Hypothesis examples.
         """
-        num_samples = 100_000
         counts = Counter()
 
-        for _ in range(num_samples):
-            result = generate_outcome(colors)
-            counts[result.selected_color] += 1
+        for _ in range(sample_size):
+            result = generate_outcome()
+            counts[result.selected_number] += 1
 
-        n = len(colors)
-        expected_freq = num_samples / n
-
-        observed = [counts.get(c, 0) for c in colors]
-        expected = [expected_freq] * n
+        expected_freq = sample_size / 10
+        observed = [counts.get(n, 0) for n in range(10)]
+        expected = [expected_freq] * 10
 
         chi2, p_value = scipy_stats.chisquare(observed, f_exp=expected)
 
@@ -102,13 +106,17 @@ class TestProperty12RNGUniformDistribution:
 
 
 class TestProperty13RNGAuditLogCompleteness:
-    """**Validates: Requirements 5.3**"""
+    """**Validates: Requirements 5.3**
+
+    Updated: RNG now generates a winning number 0-9 with num_options=10
+    and derives color from NUMBER_COLOR_MAP.
+    """
 
     @settings(max_examples=100, suppress_health_check=[HealthCheck.function_scoped_fixture, HealthCheck.too_slow])
     @given(colors=st_color_list)
     async def test_audit_entry_contains_all_required_fields(self, session, colors):
         """Every audit entry SHALL contain algorithm='secrets.randbelow',
-        raw_value, num_options, and selected_color = color_options[raw_value]."""
+        raw_value in 0-9, num_options=10, and selected_color from NUMBER_COLOR_MAP."""
         result = generate_outcome(colors)
         round_id = uuid4()
 
@@ -118,9 +126,10 @@ class TestProperty13RNGAuditLogCompleteness:
         # Verify all required fields
         assert entry.algorithm == "secrets.randbelow"
         assert entry.round_id == round_id
-        assert 0 <= entry.raw_value < len(colors)
-        assert entry.num_options == len(colors)
-        assert entry.selected_color == colors[entry.raw_value]
+        assert 0 <= entry.raw_value <= 9
+        assert entry.num_options == 10
+        assert entry.selected_color in ("green", "red", "violet")
+        assert entry.selected_color == NUMBER_COLOR_MAP[entry.raw_value]
 
     @settings(max_examples=100, suppress_health_check=[HealthCheck.function_scoped_fixture, HealthCheck.too_slow])
     @given(colors=st_color_list)
@@ -147,12 +156,12 @@ class TestProperty13RNGAuditLogCompleteness:
     @given(colors=st_color_list)
     async def test_result_selected_color_matches_index(self, session, colors):
         """The selected_color in the RNGResult SHALL equal
-        color_options[raw_value]."""
+        NUMBER_COLOR_MAP[raw_value]."""
         result = generate_outcome(colors)
 
-        assert result.selected_color == colors[result.raw_value]
+        assert result.selected_color == NUMBER_COLOR_MAP[result.raw_value]
         assert result.algorithm == "secrets.randbelow"
-        assert result.num_options == len(colors)
+        assert result.num_options == 10
 
 
 # ---------------------------------------------------------------------------
@@ -164,7 +173,11 @@ class TestProperty13RNGAuditLogCompleteness:
 
 
 class TestProperty14RNGOutcomeIndependence:
-    """**Validates: Requirements 5.4**"""
+    """**Validates: Requirements 5.4**
+
+    Updated: RNG now generates winning numbers 0-9. Serial correlation
+    test validates independence of consecutive number outcomes.
+    """
 
     @settings(
         max_examples=5,
@@ -172,25 +185,19 @@ class TestProperty14RNGOutcomeIndependence:
         suppress_health_check=[HealthCheck.function_scoped_fixture, HealthCheck.too_slow],
     )
     @given(
-        colors=st.lists(
-            st.sampled_from(["red", "green", "blue", "yellow", "purple", "orange"]),
-            min_size=2,
-            max_size=6,
-            unique=True,
-        ),
+        sample_size=st.just(100_000),
     )
-    def test_serial_correlation_not_significant(self, colors):
+    def test_serial_correlation_not_significant(self, sample_size):
         """The serial correlation coefficient between consecutive outcomes
         SHALL not be statistically significant (p > 0.01).
 
         We use 100,000 samples and max_examples=5 with Bonferroni-corrected
         threshold to avoid spurious failures from multiple statistical tests.
         """
-        num_samples = 100_000
         raw_values = []
 
-        for _ in range(num_samples):
-            result = generate_outcome(colors)
+        for _ in range(sample_size):
+            result = generate_outcome()
             raw_values.append(result.raw_value)
 
         # Compute serial correlation: correlation between x[i] and x[i+1]
@@ -264,13 +271,6 @@ class TestProperty7RNGWinningNumberUniformDistribution:
 # "green", "red", or "violet".
 # Validates: Requirements 2.2, 5.2, 8.3, 8.5
 # ---------------------------------------------------------------------------
-
-from app.services.rng_engine import (
-    NUMBER_COLOR_MAP,
-    GREEN_WINNING_NUMBERS,
-    RED_WINNING_NUMBERS,
-    VIOLET_WINNING_NUMBERS,
-)
 
 
 class TestProperty1NumberToColorMappingConsistencyBackend:

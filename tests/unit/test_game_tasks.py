@@ -86,6 +86,7 @@ async def test_advance_betting_rounds_resolves_expired():
     resolved_round = MagicMock(spec=GameRound)
     resolved_round.id = round_id
     resolved_round.winning_color = "blue"
+    resolved_round.period_number = "20250429100000001"
 
     mock_session = AsyncMock()
     mock_scalars = MagicMock()
@@ -113,7 +114,7 @@ async def test_advance_betting_rounds_resolves_expired():
         mock_publish.assert_awaited_once_with(
             round_id,
             RoundPhase.RESOLUTION.value,
-            {"winning_color": "blue"},
+            {"winning_color": "blue", "period_number": "20250429100000001"},
         )
 
 
@@ -169,11 +170,14 @@ async def test_advance_resolution_rounds_finalizes_and_starts_new():
     finalized_round.id = round_id
     finalized_round.game_mode_id = game_mode_id
     finalized_round.winning_color = "green"
+    finalized_round.winning_number = 3
     finalized_round.total_payouts = Decimal("500.00")
+    finalized_round.period_number = "20250429100000042"
 
     new_round = MagicMock(spec=GameRound)
     new_round.id = new_round_id
     new_round.game_mode_id = game_mode_id
+    new_round.period_number = "20250429100000043"
 
     mock_session = AsyncMock()
     mock_scalars = MagicMock()
@@ -205,7 +209,16 @@ async def test_advance_resolution_rounds_finalizes_and_starts_new():
         assert mock_publish.await_count == 2
         calls = mock_publish.call_args_list
         assert calls[0].args[1] == RoundPhase.RESULT.value
+        # Verify winning_number and period_number are included in the RESULT payload
+        result_extra = calls[0].args[2]
+        assert result_extra["winning_color"] == "green"
+        assert result_extra["winning_number"] == 3
+        assert result_extra["total_payouts"] == "500.00"
+        assert result_extra["period_number"] == "20250429100000042"
         assert calls[1].args[1] == RoundPhase.BETTING.value
+        # Verify period_number is included in the new round BETTING payload
+        betting_extra = calls[1].args[2]
+        assert betting_extra["period_number"] == "20250429100000043"
 
 
 # ---------------------------------------------------------------------------

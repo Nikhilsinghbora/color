@@ -10,13 +10,16 @@ dependencies = [
     "asyncpg>=0.29.0",
     "redis>=5.0.0",
     "celery>=5.3.0",
-    "pydantic>=2.0.0",
+    "pydantic[email]>=2.0.0",
     "pydantic-settings>=2.0.0",
     "python-jose[cryptography]>=3.3.0",
     "passlib[bcrypt]>=1.7.4",
     "stripe>=7.0.0",
     "alembic>=1.13.0",
 ]
+
+[tool.setuptools]
+packages = ["app"]
 
 [project.optional-dependencies]
 dev = [
@@ -25,8 +28,13 @@ dev = [
     "hypothesis>=6.90.0",
     "aiosqlite>=0.19.0",
     "httpx>=0.25.0",
+    "fakeredis>=2.20.0",
 ]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"

@@ -181,6 +181,7 @@ class WebSocketManager:
                 "timer": remaining_seconds,
                 "total_players": total_players,
                 "total_pool": str(state.total_bets),
+                "period_number": state.period_number,
             }
             await websocket.send_json(payload)
         except Exception:
@@ -240,6 +241,7 @@ class WebSocketManager:
             "betting_ends_at": state.betting_ends_at.isoformat(),
             "resolved_at": state.resolved_at.isoformat() if state.resolved_at else None,
             "completed_at": state.completed_at.isoformat() if state.completed_at else None,
+            "period_number": state.period_number,
         }
         await self._publish(f"channel:round:{round_id}", payload)
 

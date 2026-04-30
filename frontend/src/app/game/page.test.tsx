@@ -10,6 +10,7 @@ const { useWebSocketMock, useAuthGuardMock, searchParamsMock } = vi.hoisted(() =
 
 vi.mock('next/navigation', () => ({
   useSearchParams: () => searchParamsMock,
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn(), back: vi.fn() }),
 }));
 
 vi.mock('@/hooks/useAuthGuard', () => ({
@@ -20,7 +21,6 @@ vi.mock('@/hooks/useWebSocket', () => ({
   useWebSocket: useWebSocketMock,
 }));
 
-// We need to mock useCountdown to control timer values
 const { useCountdownMock } = vi.hoisted(() => ({
   useCountdownMock: vi.fn().mockReturnValue({ remaining: 25, isExpired: false }),
 }));
@@ -29,118 +29,244 @@ vi.mock('@/hooks/useCountdown', () => ({
   useCountdown: useCountdownMock,
 }));
 
+// Mock child components to isolate page-level tests
+vi.mock('@/components/ResultDisplay', () => ({
+  default: () => <div data-testid="result-display">ResultDisplay</div>,
+}));
+
+vi.mock('@/components/CountdownTimer', () => ({
+  default: (props: { totalSeconds: number; remainingSeconds: number; isResolving?: boolean }) => (
+    <div data-testid="countdown-timer" data-resolving={props.isResolving}>
+      {props.isResolving ? 'Resolving…' : props.remainingSeconds}
+    </div>
+  ),
+}));
+
+vi.mock('@/components/ColorBetButtons', () => ({
+  default: (props: { disabled: boolean }) => (
+    <div data-testid="color-bet-buttons" data-disabled={props.disabled}>
+      ColorBetButtons
+    </div>
+  ),
+}));
+
+vi.mock('@/components/NumberGrid', () => ({
+  default: (props: { disabled: boolean }) => (
+    <div data-testid="number-grid" data-disabled={props.disabled}>
+      NumberGrid
+    </div>
+  ),
+}));
+
+vi.mock('@/components/WalletCard', () => ({
+  default: () => <div data-testid="wallet-card">WalletCard</div>,
+}));
+
+vi.mock('@/components/AnnouncementBar', () => ({
+  default: () => <div data-testid="announcement-bar">AnnouncementBar</div>,
+}));
+
+vi.mock('@/components/HistoryTable', () => ({
+  default: (props: { gameModeId: string }) => (
+    <div data-testid="history-table" data-mode-id={props.gameModeId}>HistoryTable</div>
+  ),
+}));
+
+vi.mock('@/components/WinLossDialog', () => ({
+  default: (props: { isOpen: boolean; isWin: boolean; onClose: () => void }) =>
+    props.isOpen ? (
+      <div data-testid="winloss-dialog" data-is-win={props.isWin}>
+        WinLossDialog
+        <button data-testid="winloss-close" onClick={props.onClose}>Close</button>
+      </div>
+    ) : null,
+}));
+
+vi.mock('@/components/BigSmallButtons', () => ({
+  default: (props: { disabled: boolean }) => (
+    <div data-testid="big-small-buttons" data-disabled={props.disabled}>BigSmallButtons</div>
+  ),
+}));
+
+vi.mock('@/components/BetConfirmationSheet', () => ({
+  default: () => <div data-testid="bet-confirmation-sheet">BetConfirmationSheet</div>,
+}));
+
+vi.mock('@/components/SoundToggle', () => ({
+  default: () => <div data-testid="sound-toggle">SoundToggle</div>,
+}));
+
+vi.mock('@/lib/sound-manager', () => ({
+  soundManager: {
+    initialize: vi.fn(),
+    playTick: vi.fn(),
+    playLastSecond: vi.fn(),
+    playBetConfirm: vi.fn(),
+    playWinCelebration: vi.fn(),
+    setMuted: vi.fn(),
+    getIsMuted: vi.fn().mockReturnValue(false),
+  },
+}));
+
+vi.mock('@/components/GameModeTabs', () => ({
+  default: (props: { modes: unknown[]; activeMode: string; onModeChange: (id: string) => void }) => (
+    <div data-testid="game-mode-tabs" data-active-mode={props.activeMode}>
+      GameModeTabs
+    </div>
+  ),
+}));
+
+vi.mock('@/components/RulesModal', () => ({
+  default: (props: { isOpen: boolean; onClose: () => void }) =>
+    props.isOpen ? (
+      <div data-testid="rules-modal">
+        RulesModal
+        <button data-testid="rules-modal-close" onClick={props.onClose}>Close</button>
+      </div>
+    ) : null,
+}));
+
+// Mock API client
+vi.mock('@/lib/api-client', () => ({
+  apiClient: { post: vi.fn(), get: vi.fn().mockResolvedValue({ data: [] }) },
+  parseApiError: vi.fn(),
+  getErrorMessage: vi.fn(),
+}));
+
 // Mock game store with controllable state
-let mockGameState = {
-  phase: 'betting' as const,
-  timerRemaining: 30,
-  currentRound: { roundId: 'round-1', phase: 'betting' as const, timer: 30, totalPlayers: 5, totalPool: '500.00', gameMode: 'classic' },
-  colorOptions: [
-    { color: 'red', odds: '2.0' },
-    { color: 'blue', odds: '3.0' },
-    { color: 'green', odds: '5.0' },
-  ],
-  placedBets: [] as Array<{ id: string; color: string; amount: string; oddsAtPlacement: string; potentialPayout: string }>,
-  result: null as null | { winningColor: string; playerPayouts: Array<{ betId: string; amount: string; isWinner: boolean }> },
-  connectionStatus: 'connected' as string,
+const mockActions = {
+  addPlacedBet: vi.fn(),
+  setBetAmount: vi.fn(),
+  setGameModes: vi.fn(),
+  setActiveGameMode: vi.fn(),
+  openBetSheet: vi.fn(),
+  closeBetSheet: vi.fn(),
+  openWinLossDialog: vi.fn(),
+  closeWinLossDialog: vi.fn(),
 };
 
+let mockGameState: Record<string, unknown> = {};
+
+function resetGameState() {
+  mockGameState = {
+    phase: 'betting',
+    timerRemaining: 30,
+    currentRound: {
+      roundId: 'round-1',
+      phase: 'betting',
+      timer: 30,
+      totalPlayers: 5,
+      totalPool: '500.00',
+      gameMode: 'classic',
+    },
+    placedBets: [],
+    result: null,
+    lastResult: null,
+    connectionStatus: 'connected',
+    betAmount: '10',
+    roundHistory: [],
+    gameModes: [],
+    activeGameModeId: null,
+    periodNumber: null,
+    showBetSheet: false,
+    betSheetType: null,
+    showWinLossDialog: false,
+    ...mockActions,
+  };
+}
+
 vi.mock('@/stores/game-store', () => ({
-  useGameStore: (selector: (s: typeof mockGameState) => unknown) => selector(mockGameState),
+  useGameStore: (selector: (s: Record<string, unknown>) => unknown) => selector(mockGameState),
+}));
+
+vi.mock('@/stores/wallet-store', () => ({
+  useWalletStore: (selector: (s: Record<string, unknown>) => unknown) =>
+    selector({ balance: '500.00', updateBalance: vi.fn() }),
 }));
 
 import GameViewPage from './page';
 
-describe('GameViewPage', () => {
+describe('GameViewPage — Casino Layout', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockGameState = {
-      phase: 'betting',
-      timerRemaining: 30,
-      currentRound: { roundId: 'round-1', phase: 'betting', timer: 30, totalPlayers: 5, totalPool: '500.00', gameMode: 'classic' },
-      colorOptions: [
-        { color: 'red', odds: '2.0' },
-        { color: 'blue', odds: '3.0' },
-        { color: 'green', odds: '5.0' },
-      ],
-      placedBets: [],
-      result: null,
-      connectionStatus: 'connected',
-    };
+    resetGameState();
     useCountdownMock.mockReturnValue({ remaining: 25, isExpired: false });
   });
+
+  // ── Auth & routing ──
 
   it('calls useAuthGuard for route protection', () => {
     render(<GameViewPage />);
     expect(useAuthGuardMock).toHaveBeenCalled();
   });
 
-  it('displays round info (round number, total players, total pool)', () => {
+  it('uses default roundId when no search param provided', () => {
+    searchParamsMock.get.mockReturnValue(null);
     render(<GameViewPage />);
-    expect(screen.getByText(/round round-1/i)).toBeInTheDocument();
+    expect(useWebSocketMock).toHaveBeenCalledWith('current');
+  });
+
+  it('uses roundId from search params when provided', () => {
+    searchParamsMock.get.mockReturnValue('round-42');
+    render(<GameViewPage />);
+    expect(useWebSocketMock).toHaveBeenCalledWith('round-42');
+  });
+
+  // ── Layout composition ──
+
+  it('renders the casino dark gradient background', () => {
+    const { container } = render(<GameViewPage />);
+    const main = container.querySelector('main');
+    expect(main?.classList.contains('casino-bg')).toBe(true);
+  });
+
+  it('renders all core casino sub-components in new layout', () => {
+    render(<GameViewPage />);
+    expect(screen.getByTestId('wallet-card')).toBeInTheDocument();
+    expect(screen.getByTestId('announcement-bar')).toBeInTheDocument();
+    expect(screen.getByTestId('result-display')).toBeInTheDocument();
+    expect(screen.getByTestId('countdown-timer')).toBeInTheDocument();
+    expect(screen.getByTestId('color-bet-buttons')).toBeInTheDocument();
+    expect(screen.getByTestId('number-grid')).toBeInTheDocument();
+    expect(screen.getByTestId('history-table')).toBeInTheDocument();
+  });
+
+  it('displays round info (period number fallback to round ID, total players, total pool)', () => {
+    render(<GameViewPage />);
+    // When periodNumber is null, falls back to roundId
+    expect(screen.getByTestId('period-number-display')).toHaveTextContent('round-1');
     expect(screen.getByTestId('total-players')).toHaveTextContent('5');
     expect(screen.getByTestId('total-pool')).toHaveTextContent('$500.00');
   });
 
-  it('displays color chips with odds during betting phase', () => {
+  // ── Phase-dependent behavior ──
+
+  it('enables betting components during betting phase', () => {
     render(<GameViewPage />);
-    expect(screen.getByRole('button', { name: /red — odds 2\.0x/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /blue — odds 3\.0x/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /green — odds 5\.0x/i })).toBeInTheDocument();
+    expect(screen.getByTestId('color-bet-buttons').dataset.disabled).toBe('false');
+    expect(screen.getByTestId('number-grid').dataset.disabled).toBe('false');
   });
 
-  it('enables color chip buttons during betting phase', () => {
-    render(<GameViewPage />);
-    const redBtn = screen.getByRole('button', { name: /red — odds 2\.0x/i });
-    expect(redBtn).not.toBeDisabled();
-  });
-
-  it('displays countdown timer during betting phase', () => {
-    render(<GameViewPage />);
-    expect(screen.getByRole('timer')).toHaveTextContent('25');
-    expect(screen.getByText(/seconds remaining/i)).toBeInTheDocument();
-  });
-
-  it('shows "Resolving…" animation during resolution phase', () => {
+  it('disables betting components during resolution phase', () => {
     mockGameState.phase = 'resolution';
     render(<GameViewPage />);
-    expect(screen.getByText(/resolving/i)).toBeInTheDocument();
-    // Timer should not be visible
-    expect(screen.queryByRole('timer')).not.toBeInTheDocument();
+    expect(screen.getByTestId('color-bet-buttons').dataset.disabled).toBe('true');
+    expect(screen.getByTestId('number-grid').dataset.disabled).toBe('true');
   });
 
-  it('disables color chips during resolution phase', () => {
+  it('passes isResolving to CountdownTimer during resolution phase', () => {
     mockGameState.phase = 'resolution';
     render(<GameViewPage />);
-    const redBtn = screen.getByRole('button', { name: /red — odds 2\.0x/i });
-    expect(redBtn).toBeDisabled();
+    expect(screen.getByTestId('countdown-timer').dataset.resolving).toBe('true');
+    expect(screen.getByText('Resolving…')).toBeInTheDocument();
   });
 
-  it('highlights winning color during result phase', () => {
-    mockGameState.phase = 'result';
-    mockGameState.result = {
-      winningColor: 'red',
-      playerPayouts: [{ betId: 'b1', amount: '20.00', isWinner: true }],
-    };
+  it('shows countdown seconds during betting phase', () => {
     render(<GameViewPage />);
-    expect(screen.getByText(/winning color/i)).toBeInTheDocument();
-    // The winning color label appears in both the result banner and the color chip
-    const redElements = screen.getAllByText('red');
-    expect(redElements.length).toBeGreaterThanOrEqual(2);
+    expect(screen.getByTestId('countdown-timer')).toHaveTextContent('25');
   });
 
-  it('displays payout info during result phase', () => {
-    mockGameState.phase = 'result';
-    mockGameState.result = {
-      winningColor: 'red',
-      playerPayouts: [
-        { betId: 'b1', amount: '20.00', isWinner: true },
-        { betId: 'b2', amount: '10.00', isWinner: false },
-      ],
-    };
-    render(<GameViewPage />);
-    expect(screen.getByText(/won \$20\.00/i)).toBeInTheDocument();
-    expect(screen.getByText(/lost \$10\.00/i)).toBeInTheDocument();
-  });
+  // ── Connection status ──
 
   it('shows reconnecting banner when connection is reconnecting', () => {
     mockGameState.connectionStatus = 'reconnecting';
@@ -161,31 +287,53 @@ describe('GameViewPage', () => {
     expect(screen.queryByText(/disconnected/i)).not.toBeInTheDocument();
   });
 
-  it('displays placed bets summary', () => {
-    mockGameState.placedBets = [
-      { id: 'b1', color: 'red', amount: '10.00', oddsAtPlacement: '2.0', potentialPayout: '20.00' },
-    ];
+  // ── Period number display (Requirement 5.1) ──
+
+  it('displays period number when available from game store', () => {
+    mockGameState.periodNumber = '20250429100051058';
     render(<GameViewPage />);
-    expect(screen.getByText(/your bets/i)).toBeInTheDocument();
-    expect(screen.getByText('$10.00 →')).toBeInTheDocument();
-    expect(screen.getByText('$20.00')).toBeInTheDocument();
+    expect(screen.getByTestId('period-number-display')).toHaveTextContent('20250429100051058');
   });
 
-  it('does not display bets section when no bets placed', () => {
-    mockGameState.placedBets = [];
+  it('falls back to round ID when period number is null', () => {
+    mockGameState.periodNumber = null;
     render(<GameViewPage />);
-    expect(screen.queryByText(/your bets/i)).not.toBeInTheDocument();
+    expect(screen.getByTestId('period-number-display')).toHaveTextContent('round-1');
   });
 
-  it('uses default roundId when no search param provided', () => {
-    searchParamsMock.get.mockReturnValue(null);
+  it('displays dash when both period number and round ID are unavailable', () => {
+    mockGameState.periodNumber = null;
+    mockGameState.currentRound = null;
     render(<GameViewPage />);
-    expect(useWebSocketMock).toHaveBeenCalledWith('current');
+    expect(screen.getByTestId('period-number-display')).toHaveTextContent('—');
   });
 
-  it('uses roundId from search params when provided', () => {
-    searchParamsMock.get.mockReturnValue('round-42');
+  // ── How to Play button (Requirements 10.1, 10.2) ──
+
+  it('renders a "How to Play" button in the timer area', () => {
     render(<GameViewPage />);
-    expect(useWebSocketMock).toHaveBeenCalledWith('round-42');
+    expect(screen.getByTestId('how-to-play-btn')).toBeInTheDocument();
+    expect(screen.getByLabelText('How to Play')).toBeInTheDocument();
+  });
+
+  it('opens RulesModal when "How to Play" button is clicked', async () => {
+    const { user } = await import('@testing-library/user-event').then((m) => ({
+      user: m.default.setup(),
+    }));
+    render(<GameViewPage />);
+    expect(screen.queryByTestId('rules-modal')).not.toBeInTheDocument();
+    await user.click(screen.getByTestId('how-to-play-btn'));
+    expect(screen.getByTestId('rules-modal')).toBeInTheDocument();
+  });
+
+  it('closes RulesModal when close button is clicked', async () => {
+    const { user } = await import('@testing-library/user-event').then((m) => ({
+      user: m.default.setup(),
+    }));
+    render(<GameViewPage />);
+    await user.click(screen.getByTestId('how-to-play-btn'));
+    expect(screen.getByTestId('rules-modal')).toBeInTheDocument();
+    await user.click(screen.getByTestId('rules-modal-close'));
+    expect(screen.queryByTestId('rules-modal')).not.toBeInTheDocument();
   });
 });

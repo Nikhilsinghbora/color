@@ -284,7 +284,7 @@ describe('createWSClient', () => {
       { type: 'round_state', phase: 'betting', timer: 30, round_id: 'r1', total_players: 5, total_pool: '100.00' },
       { type: 'timer_tick', remaining: 25 },
       { type: 'phase_change', phase: 'resolution' },
-      { type: 'result', winning_color: 'red', payouts: [] },
+      { type: 'result', winning_color: 'red', winning_number: 2, payouts: [] },
       { type: 'new_round', round_id: 'r2', timer: 30 },
       { type: 'chat_message', sender: 'alice', message: 'hi', timestamp: '2024-01-01T00:00:00Z' },
       { type: 'bet_update', total_players: 6, total_pool: '200.00' },

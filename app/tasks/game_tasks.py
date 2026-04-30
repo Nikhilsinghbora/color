@@ -76,7 +76,10 @@ async def _advance_betting_rounds():
                 await _publish_round_state(
                     resolved.id,
                     RoundPhase.RESOLUTION.value,
-                    {"winning_color": resolved.winning_color},
+                    {
+                        "winning_color": resolved.winning_color,
+                        "period_number": resolved.period_number,
+                    },
                 )
                 logger.info("Resolved round %s", resolved.id)
             except Exception:
@@ -101,7 +104,9 @@ async def _advance_resolution_rounds():
                     RoundPhase.RESULT.value,
                     {
                         "winning_color": finalized.winning_color,
+                        "winning_number": finalized.winning_number,
                         "total_payouts": str(finalized.total_payouts),
+                        "period_number": finalized.period_number,
                     },
                 )
                 logger.info("Finalized round %s", finalized.id)
@@ -115,7 +120,10 @@ async def _advance_resolution_rounds():
                 await _publish_round_state(
                     new_round.id,
                     RoundPhase.BETTING.value,
-                    {"game_mode_id": str(new_round.game_mode_id)},
+                    {
+                        "game_mode_id": str(new_round.game_mode_id),
+                        "period_number": new_round.period_number,
+                    },
                 )
                 logger.info(
                     "Started new round %s for game mode %s",

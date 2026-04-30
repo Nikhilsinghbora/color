@@ -69,6 +69,8 @@ export interface GameMode {
   max_bet: string;
   round_duration_seconds: number;
   is_active: boolean;
+  mode_prefix: string;          // e.g. "100", "101", etc.
+  active_round_id?: string;     // current active round for this mode
 }
 
 export interface BetRequest {
@@ -102,6 +104,7 @@ export interface PlacedBet {
 
 export interface RoundResult {
   winningColor: string;
+  winningNumber: number;
   playerPayouts: { betId: string; amount: string; isWinner: boolean }[];
 }
 
@@ -112,6 +115,7 @@ export interface RoundState {
   totalPlayers: number;
   totalPool: string;
   gameMode: string;
+  periodNumber?: string;       // formatted period number for display
 }
 
 // === Leaderboard Types ===
@@ -237,11 +241,11 @@ export interface PayoutInfo {
 }
 
 export type WSIncomingMessage =
-  | { type: 'round_state'; phase: RoundPhase; timer: number; round_id: string; total_players: number; total_pool: string }
+  | { type: 'round_state'; phase: RoundPhase; timer: number; round_id: string; total_players: number; total_pool: string; period_number?: string }
   | { type: 'timer_tick'; remaining: number }
   | { type: 'phase_change'; phase: RoundPhase }
-  | { type: 'result'; winning_color: string; payouts: PayoutInfo[] }
-  | { type: 'new_round'; round_id: string; timer: number }
+  | { type: 'result'; winning_color: string; winning_number: number; payouts: PayoutInfo[]; period_number?: string }
+  | { type: 'new_round'; round_id: string; timer: number; period_number?: string }
   | { type: 'chat_message'; sender: string; message: string; timestamp: string }
   | { type: 'bet_update'; total_players: number; total_pool: string }
   | { type: 'error'; code: string; message: string };

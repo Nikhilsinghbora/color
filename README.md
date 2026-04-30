@@ -103,14 +103,15 @@ stateDiagram-v2
 The project includes a robust local development script that uses `aiosqlite` and `fakeredis` so you do not need external services (like Docker or actual Redis) to test the APIs.
 
 1. **Install dependencies**:
-   Ensure you have Python 3.11+ installed.
+   Ensure you have [uv](https://github.com/astral-sh/uv) installed.
    ```bash
-   pip install -e .[dev]
+   uv sync --all-extras
    ```
+   *Note: This will create a virtual environment and install all dependencies (including dev tools) in `.venv`.*
 
 2. **Start the local server**:
    ```bash
-   python run_local.py
+   uv run run_local.py
    ```
 
 3. **Access the API**:

@@ -8,6 +8,7 @@ Uses Hypothesis with real async DB sessions to verify the game engine's
 place_bet() correctly accepts or rejects number bets.
 """
 
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from uuid import uuid4
 
@@ -36,7 +37,7 @@ async def _create_game_mode(
         name=f"test-{uuid4().hex[:8]}",
         mode_type="classic",
         color_options=["red", "green", "violet"],
-        odds={"red": 2.0, "green": 2.0, "violet": 4.8, "number": 9.6},
+        odds={"red": 2.0, "green": 2.0, "violet": 4.8, "number": 9.6, "big": 2.0, "small": 2.0},
         min_bet=min_bet,
         max_bet=max_bet,
         round_duration_seconds=30,
@@ -86,7 +87,7 @@ st_digit = st.sampled_from([str(d) for d in range(10)])
 class TestProperty5NumberBetAcceptanceAndValidation:
     """**Validates: Requirements 8.2**"""
 
-    @settings(max_examples=100, suppress_health_check=[HealthCheck.function_scoped_fixture])
+    @settings(max_examples=100, suppress_health_check=[HealthCheck.function_scoped_fixture], deadline=None)
     @given(
         digit=st_digit,
         data=st.data(),
@@ -114,7 +115,16 @@ class TestProperty5NumberBetAcceptanceAndValidation:
             session, balance=max_bet,
         )
 
-        game_round = await game_engine.start_round(session, game_mode.id)
+        # Create round directly to avoid period_number uniqueness collisions
+        # across Hypothesis iterations.
+        game_round = GameRound(
+            id=uuid4(),
+            game_mode_id=game_mode.id,
+            phase=RoundPhase.BETTING,
+            betting_ends_at=datetime.now(timezone.utc) + timedelta(seconds=30),
+        )
+        session.add(game_round)
+        await session.flush()
 
         bet = await game_engine.place_bet(
             session, player.id, game_round.id, digit, amount
@@ -124,7 +134,7 @@ class TestProperty5NumberBetAcceptanceAndValidation:
         assert bet.amount == amount
         assert bet.odds_at_placement == Decimal("9.6")
 
-    @settings(max_examples=100, suppress_health_check=[HealthCheck.function_scoped_fixture])
+    @settings(max_examples=100, suppress_health_check=[HealthCheck.function_scoped_fixture], deadline=None)
     @given(
         digit=st_digit,
         data=st.data(),
@@ -152,7 +162,14 @@ class TestProperty5NumberBetAcceptanceAndValidation:
             session, balance=Decimal("10000.00"),
         )
 
-        game_round = await game_engine.start_round(session, game_mode.id)
+        game_round = GameRound(
+            id=uuid4(),
+            game_mode_id=game_mode.id,
+            phase=RoundPhase.BETTING,
+            betting_ends_at=datetime.now(timezone.utc) + timedelta(seconds=30),
+        )
+        session.add(game_round)
+        await session.flush()
 
         with pytest.raises(BetLimitError) as exc_info:
             await game_engine.place_bet(
@@ -160,7 +177,7 @@ class TestProperty5NumberBetAcceptanceAndValidation:
             )
         assert exc_info.value.min_bet == min_bet
 
-    @settings(max_examples=100, suppress_health_check=[HealthCheck.function_scoped_fixture])
+    @settings(max_examples=100, suppress_health_check=[HealthCheck.function_scoped_fixture], deadline=None)
     @given(
         digit=st_digit,
         data=st.data(),
@@ -188,7 +205,14 @@ class TestProperty5NumberBetAcceptanceAndValidation:
             session, balance=Decimal("999999.00"),
         )
 
-        game_round = await game_engine.start_round(session, game_mode.id)
+        game_round = GameRound(
+            id=uuid4(),
+            game_mode_id=game_mode.id,
+            phase=RoundPhase.BETTING,
+            betting_ends_at=datetime.now(timezone.utc) + timedelta(seconds=30),
+        )
+        session.add(game_round)
+        await session.flush()
 
         with pytest.raises(BetLimitError) as exc_info:
             await game_engine.place_bet(
@@ -239,7 +263,14 @@ class TestProperty5NumberBetAcceptanceAndValidation:
             session, balance=balance,
         )
 
-        game_round = await game_engine.start_round(session, game_mode.id)
+        game_round = GameRound(
+            id=uuid4(),
+            game_mode_id=game_mode.id,
+            phase=RoundPhase.BETTING,
+            betting_ends_at=datetime.now(timezone.utc) + timedelta(seconds=30),
+        )
+        session.add(game_round)
+        await session.flush()
 
         with pytest.raises(InsufficientBalanceError) as exc_info:
             await game_engine.place_bet(

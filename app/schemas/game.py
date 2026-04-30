@@ -5,7 +5,7 @@ from decimal import Decimal
 from typing import Optional
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 class PlaceBetRequest(BaseModel):
@@ -25,6 +25,8 @@ class GameModeResponse(BaseModel):
     max_bet: Decimal
     round_duration_seconds: int
     is_active: bool
+    active_round_id: UUID | None = None
+    mode_prefix: str = "100"
 
     model_config = {"from_attributes": True}
 
@@ -65,3 +67,42 @@ class ResultSummaryResponse(BaseModel):
     odds_at_placement: Decimal
     is_winner: bool
     payout: Decimal
+
+
+class GameHistoryEntry(BaseModel):
+    """A single completed round in the game history."""
+    period_number: str | None
+    winning_number: int | None
+    winning_color: str | None
+    big_small_label: str  # "Big" or "Small"
+    completed_at: datetime | None
+
+    model_config = {"from_attributes": True}
+
+
+class PaginatedGameHistory(BaseModel):
+    """Paginated response for game history."""
+    items: list[GameHistoryEntry]
+    total: int
+    page: int
+    size: int
+    has_more: bool
+
+
+class MyHistoryEntry(BaseModel):
+    """A single bet entry in the player's bet history."""
+    period_number: str | None
+    bet_type: str
+    bet_amount: Decimal
+    is_winner: bool | None
+    payout_amount: Decimal
+    created_at: datetime
+
+
+class PaginatedMyHistory(BaseModel):
+    """Paginated response for player bet history."""
+    items: list[MyHistoryEntry]
+    total: int
+    page: int
+    size: int
+    has_more: bool

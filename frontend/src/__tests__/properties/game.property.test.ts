@@ -206,6 +206,7 @@ describe('Property 7: Game state full reset on new round', () => {
       result: fc.option(
         fc.record({
           winningColor: fc.stringMatching(/^[a-z]{3,10}$/),
+          winningNumber: fc.integer({ min: 0, max: 9 }),
           playerPayouts: fc.array(
             fc.record({
               betId: fc.uuid(),

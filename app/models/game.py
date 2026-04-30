@@ -12,6 +12,7 @@ from sqlalchemy import (
     JSON,
     Numeric,
     String,
+    UniqueConstraint,
     func,
 )
 from sqlalchemy.orm import Mapped, mapped_column
@@ -37,6 +38,7 @@ class GameMode(Base):
     max_bet: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
     round_duration_seconds: Mapped[int] = mapped_column(nullable=False)
     is_active: Mapped[bool] = mapped_column(default=True)
+    mode_prefix: Mapped[str] = mapped_column(String(3), nullable=False, default="100")
     created_at: Mapped[datetime] = mapped_column(default=func.now())
     updated_at: Mapped[datetime] = mapped_column(default=func.now(), onupdate=func.now())
 
@@ -57,7 +59,16 @@ class GameRound(Base):
     betting_ends_at: Mapped[datetime] = mapped_column(nullable=False)
     resolved_at: Mapped[Optional[datetime]] = mapped_column(nullable=True)
     completed_at: Mapped[Optional[datetime]] = mapped_column(nullable=True)
+    period_number: Mapped[Optional[str]] = mapped_column(String(20), unique=True, nullable=True, index=True)
     created_at: Mapped[datetime] = mapped_column(default=func.now())
+
+    # Profit management fields
+    total_payout_pool: Mapped[Optional[Decimal]] = mapped_column(Numeric(14, 2), nullable=True)
+    house_profit: Mapped[Optional[Decimal]] = mapped_column(Numeric(14, 2), nullable=True)
+    total_calculated_payouts: Mapped[Optional[Decimal]] = mapped_column(Numeric(14, 2), nullable=True)
+    payout_reduced: Mapped[bool] = mapped_column(default=False)
+    applied_house_percentage: Mapped[Optional[Decimal]] = mapped_column(Numeric(5, 2), nullable=True)
+    applied_winners_percentage: Mapped[Optional[Decimal]] = mapped_column(Numeric(5, 2), nullable=True)
 
 
 class Bet(Base):
@@ -87,3 +98,31 @@ class Payout(Base):
     amount: Mapped[Decimal] = mapped_column(Numeric(14, 2), nullable=False)
     credited: Mapped[bool] = mapped_column(default=False)
     created_at: Mapped[datetime] = mapped_column(default=func.now())
+
+
+class ProfitSettings(Base):
+    __tablename__ = "profit_settings"
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    house_profit_percentage: Mapped[Decimal] = mapped_column(Numeric(5, 2), nullable=False)
+    winners_pool_percentage: Mapped[Decimal] = mapped_column(Numeric(5, 2), nullable=False)
+    is_active: Mapped[bool] = mapped_column(default=True)
+    created_at: Mapped[datetime] = mapped_column(default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(default=func.now(), onupdate=func.now())
+
+    __table_args__ = (
+        CheckConstraint("house_profit_percentage >= 0 AND house_profit_percentage <= 100", name="valid_house_percentage"),
+        CheckConstraint("winners_pool_percentage >= 0 AND winners_pool_percentage <= 100", name="valid_winners_percentage"),
+        CheckConstraint("house_profit_percentage + winners_pool_percentage = 100", name="total_percentage_is_100"),
+    )
+
+
+class PeriodSequence(Base):
+    __tablename__ = "period_sequences"
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    game_mode_id: Mapped[UUID] = mapped_column(ForeignKey("game_modes.id"), nullable=False)
+    date_str: Mapped[str] = mapped_column(String(8), nullable=False)
+    last_sequence: Mapped[int] = mapped_column(default=0)
+
+    __table_args__ = (UniqueConstraint("game_mode_id", "date_str"),)

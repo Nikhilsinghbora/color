@@ -29,6 +29,9 @@ export function useWebSocket(roundId: string) {
           totalPool: msg.total_pool,
           gameMode: '',
         });
+        if (msg.period_number) {
+          gameStore.setPeriodNumber(msg.period_number);
+        }
         break;
 
       case 'timer_tick':
@@ -42,16 +45,23 @@ export function useWebSocket(roundId: string) {
       case 'result':
         gameStore.setResult({
           winningColor: msg.winning_color,
+          winningNumber: msg.winning_number,
           playerPayouts: msg.payouts.map((p) => ({
             betId: p.bet_id,
             amount: p.amount,
             isWinner: true,
           })),
         });
+        if (gameStore.placedBets.length > 0) {
+          gameStore.openWinLossDialog();
+        }
         break;
 
       case 'new_round':
         gameStore.resetRound(msg.round_id, msg.timer);
+        if (msg.period_number) {
+          gameStore.setPeriodNumber(msg.period_number);
+        }
         break;
 
       case 'bet_update': {

@@ -5,19 +5,40 @@ import type {
   PlacedBet,
   RoundResult,
   RoundState,
+  GameMode,
 } from '@/types';
 
 type ConnectionStatus = 'connecting' | 'connected' | 'disconnected' | 'reconnecting';
+
+export interface LastResult {
+  winningNumber: number;
+  winningColor: string;
+}
+
+export interface RoundHistoryEntry {
+  roundId: string;
+  winningNumber: number;
+  winningColor: string;
+}
 
 export interface GameStoreState {
   currentRound: RoundState | null;
   phase: RoundPhase;
   timerRemaining: number;
   colorOptions: ColorOption[];
-  selectedBets: Record<string, string>; // color -> amount string
+  selectedBets: Record<string, string>; // color or number string -> amount string
   placedBets: PlacedBet[];
   result: RoundResult | null;
+  lastResult: LastResult | null;
+  betAmount: string;
+  roundHistory: RoundHistoryEntry[];
   connectionStatus: ConnectionStatus;
+  activeGameModeId: string | null;
+  gameModes: GameMode[];
+  periodNumber: string | null;
+  showBetSheet: boolean;
+  betSheetType: string | null;
+  showWinLossDialog: boolean;
 
   setRoundState: (state: RoundState) => void;
   setPhase: (phase: RoundPhase) => void;
@@ -28,6 +49,14 @@ export interface GameStoreState {
   setResult: (result: RoundResult) => void;
   resetRound: (roundId: string, timer: number) => void;
   setConnectionStatus: (status: ConnectionStatus) => void;
+  setBetAmount: (amount: string) => void;
+  setActiveGameMode: (modeId: string) => void;
+  setGameModes: (modes: GameMode[]) => void;
+  setPeriodNumber: (pn: string) => void;
+  openBetSheet: (betType: string) => void;
+  closeBetSheet: () => void;
+  openWinLossDialog: () => void;
+  closeWinLossDialog: () => void;
 }
 
 export const useGameStore = create<GameStoreState>((set) => ({
@@ -38,7 +67,16 @@ export const useGameStore = create<GameStoreState>((set) => ({
   selectedBets: {},
   placedBets: [],
   result: null,
+  lastResult: null,
+  betAmount: '10',
+  roundHistory: [],
   connectionStatus: 'disconnected',
+  activeGameModeId: null,
+  gameModes: [],
+  periodNumber: null,
+  showBetSheet: false,
+  betSheetType: null,
+  showWinLossDialog: false,
 
   setRoundState: (roundState: RoundState) => {
     // Extract color options from the round's gameMode info isn't available here,
@@ -79,11 +117,27 @@ export const useGameStore = create<GameStoreState>((set) => ({
   },
 
   setResult: (result: RoundResult) => {
-    set({ result });
+    set((state) => ({
+      result,
+      lastResult: {
+        winningNumber: result.winningNumber,
+        winningColor: result.winningColor,
+      },
+      roundHistory: [
+        ...state.roundHistory,
+        ...(state.currentRound
+          ? [{
+              roundId: state.currentRound.roundId,
+              winningNumber: result.winningNumber,
+              winningColor: result.winningColor,
+            }]
+          : []),
+      ],
+    }));
   },
 
   resetRound: (roundId: string, timer: number) => {
-    set({
+    set((state) => ({
       currentRound: {
         roundId,
         phase: 'betting',
@@ -97,10 +151,45 @@ export const useGameStore = create<GameStoreState>((set) => ({
       selectedBets: {},
       placedBets: [],
       result: null,
-    });
+      periodNumber: null,
+      // Preserve lastResult so ResultDisplay continues showing previous round's result
+      lastResult: state.lastResult,
+    }));
   },
 
   setConnectionStatus: (status: ConnectionStatus) => {
     set({ connectionStatus: status });
+  },
+
+  setBetAmount: (amount: string) => {
+    set({ betAmount: amount });
+  },
+
+  setActiveGameMode: (modeId: string) => {
+    set({ activeGameModeId: modeId });
+  },
+
+  setGameModes: (modes: GameMode[]) => {
+    set({ gameModes: modes });
+  },
+
+  setPeriodNumber: (pn: string) => {
+    set({ periodNumber: pn });
+  },
+
+  openBetSheet: (betType: string) => {
+    set({ showBetSheet: true, betSheetType: betType });
+  },
+
+  closeBetSheet: () => {
+    set({ showBetSheet: false, betSheetType: null });
+  },
+
+  openWinLossDialog: () => {
+    set({ showWinLossDialog: true });
+  },
+
+  closeWinLossDialog: () => {
+    set({ showWinLossDialog: false });
   },
 }));

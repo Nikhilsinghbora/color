@@ -40,7 +40,7 @@ This plan implements three interconnected changes: (1) casino-style dark-themed 
   - [x] 2.2 Write property test for number bet payout correctness
     - **Property 3: Number bet payout correctness**
     - For any winning number w (0–9), any bet_number (0–9), and any bet_amount > 0: winner iff bet_number == w, payout = bet_amount * number_odds quantized to 2dp
-    - **Validates: Requirements 8.4**
+    - **Validates: Requirements 8.4** 
 
   - [x] 2.3 Write property test for color bet payout correctness with dual-color numbers
     - **Property 4: Color bet payout correctness with dual-color numbers**
@@ -65,8 +65,8 @@ This plan implements three interconnected changes: (1) casino-style dark-themed 
     - For any digit string "0"–"9" and any amount: accepted iff min_bet <= amount <= max_bet and sufficient balance
     - **Validates: Requirements 8.2**
 
-- [ ] 3. Backend: Single-player bug fix and WebSocket state initialization
-  - [-] 3.1 Update `WS_Manager.connect()` to send initial `round_state` message on connection
+- [x] 3. Backend: Single-player bug fix and WebSocket state initialization
+  - [x] 3.1 Update `WS_Manager.connect()` to send initial `round_state` message on connection
     - After `await websocket.accept()`, fetch current round state via `game_engine.get_round_state()` using a database session
     - Calculate `total_players` from `get_round_connection_count(round_id)`
     - Calculate remaining timer seconds from `betting_ends_at - now`
@@ -74,36 +74,36 @@ This plan implements three interconnected changes: (1) casino-style dark-themed 
     - Handle errors gracefully: if fetch fails, log and continue (player gets state on next broadcast)
     - _Requirements: 9.2, 9.3, 10.1, 10.3_
 
-  - [~] 3.2 Write property test for WebSocket connection count accuracy
+  - [x] 3.2 Write property test for WebSocket connection count accuracy
     - **Property 6: WebSocket connection count accuracy**
     - For any sequence of connect/disconnect operations, `get_round_connection_count(round_id)` returns the number of currently active unique players
     - **Validates: Requirements 10.3**
 
-  - [~] 3.3 Update Celery task `_publish_round_state()` to include `winning_number` in result phase payload
+  - [x] 3.3 Update Celery task `_publish_round_state()` to include `winning_number` in result phase payload
     - Add `winning_number` to the published payload when phase is RESULT
     - Ensure round resolution has no minimum player count or bet count requirement (verify existing behavior)
     - _Requirements: 9.1, 9.6, 10.5_
 
-- [~] 4. Checkpoint — Backend tests pass
+- [x] 4. Checkpoint — Backend tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 5. Frontend: Shared utilities and type updates
-  - [~] 5.1 Create `frontend/src/lib/number-color-map.ts` with `NUMBER_COLOR_MAP` constant
+- [x] 5. Frontend: Shared utilities and type updates
+  - [x] 5.1 Create `frontend/src/lib/number-color-map.ts` with `NUMBER_COLOR_MAP` constant
     - Define `NUMBER_COLOR_MAP: Record<number, { primary: string; secondary?: string }>` mapping 0–9 to colors
     - Numbers 0 and 5 have `{ primary: 'green', secondary: 'violet' }`, 1/3/7/9 are green, 2/4/6/8 are red
     - _Requirements: 2.2, 5.2_
 
-  - [~] 5.2 Write property test for Number-to-Color mapping consistency (frontend)
+  - [x] 5.2 Write property test for Number-to-Color mapping consistency (frontend)
     - **Property 1: Number-to-Color mapping consistency (frontend portion)**
     - For all numbers 0–9, verify `NUMBER_COLOR_MAP[n].primary` is one of "green", "red" and optional `secondary` is "violet"
     - **Validates: Requirements 2.2, 5.2, 8.3, 8.5**
 
-  - [~] 5.3 Update `frontend/src/types/index.ts` with number betting types
+  - [x] 5.3 Update `frontend/src/types/index.ts` with number betting types
     - Add `winning_number: number` to the `result` variant of `WSIncomingMessage`
     - Add `winningNumber: number` to `RoundResult` interface
     - _Requirements: 8.3_
 
-  - [~] 5.4 Update `frontend/src/stores/game-store.ts` with new state fields and logic
+  - [x] 5.4 Update `frontend/src/stores/game-store.ts` with new state fields and logic
     - Add `lastResult: { winningNumber: number; winningColor: string } | null` field
     - Add `betAmount: string` field for BottomBar bet amount control
     - Add `roundHistory: Array<{ roundId: string; winningNumber: number; winningColor: string }>` for History tab
@@ -112,20 +112,20 @@ This plan implements three interconnected changes: (1) casino-style dark-themed 
     - Ensure `setRoundState` works correctly with `totalPlayers: 1`
     - _Requirements: 2.4, 6.1, 7.2, 9.3, 10.2_
 
-  - [~] 5.5 Update `frontend/src/hooks/useWebSocket.ts` to handle `winning_number` in result messages
+  - [x] 5.5 Update `frontend/src/hooks/useWebSocket.ts` to handle `winning_number` in result messages
     - Pass `winningNumber: msg.winning_number` when calling `gameStore.setResult()`
     - _Requirements: 8.3_
 
-- [ ] 6. Frontend: Casino dark theme and globals
-  - [~] 6.1 Update `frontend/src/app/globals.css` with casino dark gradient theme variables
+- [x] 6. Frontend: Casino dark theme and globals
+  - [x] 6.1 Update `frontend/src/app/globals.css` with casino dark gradient theme variables
     - Add casino-specific CSS custom properties for dark blue-to-purple gradient background
     - Add color variables for green (#00C853), violet (#7C4DFF), red (#FF1744) betting buttons
     - Add transition animation utilities for hover/active/disabled states
     - Ensure minimum 4.5:1 contrast ratio for text on dark backgrounds
     - _Requirements: 1.1, 1.3, 1.4, 1.5_
 
-- [ ] 7. Frontend: New UI components
-  - [~] 7.1 Create `ResultDisplay` component
+- [x] 7. Frontend: New UI components
+  - [x] 7.1 Create `ResultDisplay` component
     - Create `frontend/src/components/ResultDisplay.tsx`
     - Read `result`, `phase`, `lastResult` from game store
     - Show winning number in large bold text within circular container with color background per `NUMBER_COLOR_MAP`
@@ -133,7 +133,7 @@ This plan implements three interconnected changes: (1) casino-style dark-themed 
     - Continue showing previous result until new result arrives
     - _Requirements: 2.1, 2.2, 2.3, 2.4_
 
-  - [~] 7.2 Create `CountdownTimer` component with SVG circular progress ring
+  - [x] 7.2 Create `CountdownTimer` component with SVG circular progress ring
     - Create `frontend/src/components/CountdownTimer.tsx`
     - Accept `totalSeconds` and `remainingSeconds` props
     - Render SVG circle with `stroke-dasharray`/`stroke-dashoffset`: `dashoffset = circumference * (1 - remainingSeconds / totalSeconds)`
@@ -142,12 +142,12 @@ This plan implements three interconnected changes: (1) casino-style dark-themed 
     - Fully depleted ring when countdown reaches zero
     - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5_
 
-  - [~] 7.3 Write property test for countdown timer progress ring calculation
+  - [x] 7.3 Write property test for countdown timer progress ring calculation
     - **Property 2: Countdown timer progress ring calculation**
     - For any totalSeconds > 0 and 0 <= remainingSeconds <= totalSeconds: dashoffset = circumference * (1 - remainingSeconds / totalSeconds). At 0 remaining → full circumference. At totalSeconds remaining → 0.
     - **Validates: Requirements 3.1, 3.3**
 
-  - [~] 7.4 Create `ColorBetButtons` component
+  - [x] 7.4 Create `ColorBetButtons` component
     - Create `frontend/src/components/ColorBetButtons.tsx`
     - Three horizontal buttons: Green (x2.0), Violet (x4.8), Red (x2.0)
     - Each shows multiplier text and checkmark badge when bet placed
@@ -155,7 +155,7 @@ This plan implements three interconnected changes: (1) casino-style dark-themed 
     - On tap during betting phase, trigger bet amount input for that color
     - _Requirements: 4.1, 4.2, 4.3, 4.4, 4.5_
 
-  - [~] 7.5 Create `NumberGrid` component
+  - [x] 7.5 Create `NumberGrid` component
     - Create `frontend/src/components/NumberGrid.tsx`
     - 2×5 grid of number buttons (0–9) color-coded per `NUMBER_COLOR_MAP`
     - Numbers 0 and 5 show green+violet gradient/accent
@@ -163,14 +163,14 @@ This plan implements three interconnected changes: (1) casino-style dark-themed 
     - Disabled during non-betting phases
     - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5, 5.6_
 
-  - [~] 7.6 Create `BottomBar` component
+  - [x] 7.6 Create `BottomBar` component
     - Create `frontend/src/components/BottomBar.tsx`
     - Fixed bottom bar with three sections: Balance (from wallet store), Win (last round payout or "0.00"), bet amount controls
     - Bet controls: numeric display, x2/÷2 buttons, undo last bet, clear all pending bets
     - Visible during all round phases
     - _Requirements: 6.1, 6.2, 6.3, 6.4, 6.5, 6.6_
 
-  - [~] 7.7 Create `HistoryTabs` component
+  - [x] 7.7 Create `HistoryTabs` component
     - Create `frontend/src/components/HistoryTabs.tsx`
     - Tab bar with "History" and "My Bets" tabs
     - History: horizontal scrollable row of colored circles for recent results from `roundHistory`
@@ -178,8 +178,8 @@ This plan implements three interconnected changes: (1) casino-style dark-themed 
     - Collapsible panel to maximize game area
     - _Requirements: 7.1, 7.2, 7.3, 7.4, 7.5_
 
-- [ ] 8. Frontend: Compose game page with new layout
-  - [~] 8.1 Rewrite `frontend/src/app/game/page.tsx` with casino layout
+- [x] 8. Frontend: Compose game page with new layout
+  - [x] 8.1 Rewrite `frontend/src/app/game/page.tsx` with casino layout
     - Replace current layout with dark gradient background
     - Compose components in vertical order: ResultDisplay → CountdownTimer → ColorBetButtons → NumberGrid → BottomBar → HistoryTabs
     - Single-column mobile-first layout with rounded corners, shadows, semi-transparent card backgrounds
@@ -187,21 +187,21 @@ This plan implements three interconnected changes: (1) casino-style dark-themed 
     - Wire color/number bet button callbacks to bet placement API via existing `BettingControls` logic or inline handlers
     - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5, 10.2, 10.4_
 
-- [~] 9. Checkpoint — Frontend builds and renders correctly
+- [x] 9. Checkpoint — Frontend builds and renders correctly
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 10. Integration: Wire frontend to backend number betting
-  - [~] 10.1 Update bet placement flow to support number bets
+- [x] 10. Integration: Wire frontend to backend number betting
+  - [x] 10.1 Update bet placement flow to support number bets
     - When a number button is tapped, send POST to `/api/v1/game/bet` with `color` set to the digit string ("0"–"9")
     - Reuse existing bet placement API client and error handling from `BettingControls`
     - _Requirements: 8.1, 8.2_
 
-  - [~] 10.2 Update `useWebSocket` handler to process `winning_number` from result messages and populate `lastResult`/`roundHistory`
+  - [x] 10.2 Update `useWebSocket` handler to process `winning_number` from result messages and populate `lastResult`/`roundHistory`
     - Extract `winning_number` from result WS message and pass to `setResult`
     - Ensure game store `lastResult` is set for `ResultDisplay` component
     - _Requirements: 8.3, 9.3_
 
-- [~] 11. Final checkpoint — All tests pass end-to-end
+- [x] 11. Final checkpoint — All tests pass end-to-end
   - Ensure all tests pass, ask the user if questions arise.
 
 ## Notes

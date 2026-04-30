@@ -95,6 +95,7 @@ describe('Integration: Betting Flow', () => {
     // Step 7: Receive result
     useGameStore.getState().setResult({
       winningColor: 'red',
+      winningNumber: 2,
       playerPayouts: [{ betId: 'bet-1', amount: '100.00', isWinner: true }],
     });
 

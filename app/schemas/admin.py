@@ -54,3 +54,59 @@ class PlayerActionRequest(BaseModel):
         if v not in allowed:
             raise ValueError(f"Action must be one of: {', '.join(sorted(allowed))}")
         return v
+
+
+class ProfitSettingsRequest(BaseModel):
+    """Request body for updating profit settings."""
+
+    house_profit_percentage: Decimal = Field(
+        ...,
+        ge=Decimal("0.00"),
+        le=Decimal("100.00"),
+        description="House profit percentage (0-100)"
+    )
+    winners_pool_percentage: Decimal = Field(
+        ...,
+        ge=Decimal("0.00"),
+        le=Decimal("100.00"),
+        description="Winners pool percentage (0-100)"
+    )
+
+    @field_validator("winners_pool_percentage")
+    @classmethod
+    def validate_total_percentage(cls, v: Decimal, info) -> Decimal:
+        if "house_profit_percentage" in info.data:
+            house = info.data["house_profit_percentage"]
+            if house + v != Decimal("100.00"):
+                raise ValueError("house_profit_percentage + winners_pool_percentage must equal 100")
+        return v
+
+
+class ProfitSettingsResponse(BaseModel):
+    """Response schema for profit settings."""
+
+    id: UUID
+    house_profit_percentage: Decimal
+    winners_pool_percentage: Decimal
+    is_active: bool
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class RoundProfitDetailsResponse(BaseModel):
+    """Response schema for round profit details."""
+
+    round_id: UUID
+    total_bets: Decimal
+    total_payout_pool: Optional[Decimal]
+    house_profit: Optional[Decimal]
+    total_calculated_payouts: Optional[Decimal]
+    total_actual_payouts: Decimal
+    payout_reduced: bool
+    applied_house_percentage: Optional[Decimal]
+    applied_winners_percentage: Optional[Decimal]
+    flagged_for_review: bool
+
+    model_config = {"from_attributes": True}

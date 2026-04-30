@@ -30,7 +30,7 @@ def _make_ws(accepted: bool = True) -> AsyncMock:
     return ws
 
 
-def _make_round_state(round_id=None, game_mode_id=None) -> RoundState:
+def _make_round_state(round_id=None, game_mode_id=None, period_number=None) -> RoundState:
     return RoundState(
         round_id=round_id or uuid4(),
         game_mode_id=game_mode_id or uuid4(),
@@ -41,6 +41,7 @@ def _make_round_state(round_id=None, game_mode_id=None) -> RoundState:
         betting_ends_at=datetime.now(timezone.utc),
         resolved_at=None,
         completed_at=None,
+        period_number=period_number,
     )
 
 
@@ -128,7 +129,7 @@ class TestSendInitialRoundState:
 
     @pytest.mark.asyncio
     async def test_sends_round_state_payload(self):
-        """Sends a round_state message with phase, timer, total_players, total_pool."""
+        """Sends a round_state message with phase, timer, total_players, total_pool, period_number."""
         mgr = WebSocketManager()
         ws = _make_ws()
         player_id, round_id = uuid4(), uuid4()
@@ -138,7 +139,7 @@ class TestSendInitialRoundState:
              patch.object(mgr, "_send_initial_round_state", new_callable=AsyncMock):
             await mgr.connect(ws, player_id, round_id)
 
-        state = _make_round_state(round_id=round_id)
+        state = _make_round_state(round_id=round_id, period_number="20250429100000001")
 
         mock_session = AsyncMock()
         mock_factory_ctx = AsyncMock()
@@ -159,6 +160,7 @@ class TestSendInitialRoundState:
         assert "timer" in payload
         assert payload["timer"] >= 0
         assert "total_pool" in payload
+        assert payload["period_number"] == "20250429100000001"
 
     @pytest.mark.asyncio
     async def test_graceful_failure_on_db_error(self):
@@ -261,7 +263,7 @@ class TestBroadcastRoundState:
     async def test_publishes_to_redis(self):
         mgr = WebSocketManager()
         round_id = uuid4()
-        state = _make_round_state(round_id=round_id)
+        state = _make_round_state(round_id=round_id, period_number="20250429100000005")
 
         with patch.object(mgr, "_publish", new_callable=AsyncMock) as mock_pub:
             await mgr.broadcast_round_state(round_id, state)
@@ -271,6 +273,7 @@ class TestBroadcastRoundState:
         assert channel == f"channel:round:{round_id}"
         assert payload["type"] == "round_state"
         assert payload["phase"] == "betting"
+        assert payload["period_number"] == "20250429100000005"
 
 
 class TestBroadcastChat:

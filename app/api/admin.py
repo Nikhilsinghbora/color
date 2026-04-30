@@ -25,8 +25,12 @@ from app.schemas.admin import (
     DashboardResponse,
     GameConfigUpdateRequest,
     PlayerActionRequest,
+    ProfitSettingsRequest,
+    ProfitSettingsResponse,
+    RoundProfitDetailsResponse,
 )
-from app.services import admin_service
+from app.models.game import GameRound
+from app.services import admin_service, profit_service
 
 router = APIRouter(prefix="/api/v1/admin", tags=["admin"])
 
@@ -184,3 +188,73 @@ async def get_rng_audit(
         "page_size": result["page_size"],
         "total": result["total"],
     }
+
+
+@router.get("/profit-settings", response_model=ProfitSettingsResponse)
+async def get_profit_settings(
+    db: AsyncSession = Depends(get_db),
+    admin_id: UUID = Depends(_require_admin),
+):
+    """Get the currently active profit settings."""
+    settings = await profit_service.get_active_profit_settings(db)
+    if not settings:
+        raise HTTPException(
+            status_code=404,
+            detail="No profit settings configured. Use POST to create initial settings."
+        )
+    return ProfitSettingsResponse.model_validate(settings)
+
+
+@router.post("/profit-settings", response_model=ProfitSettingsResponse, status_code=201)
+async def create_profit_settings(
+    body: ProfitSettingsRequest,
+    db: AsyncSession = Depends(get_db),
+    admin_id: UUID = Depends(_require_admin),
+):
+    """Create or update profit settings (house profit vs winner pool).
+
+    Example:
+    - house_profit_percentage: 20
+    - winners_pool_percentage: 80
+
+    This means 20% of total bets goes to house, 80% available for winners.
+    If calculated payouts exceed 80%, winners get reduced payouts.
+    """
+    try:
+        settings = await profit_service.create_profit_settings(
+            db,
+            house_profit_percentage=body.house_profit_percentage,
+            winners_pool_percentage=body.winners_pool_percentage,
+        )
+        await db.commit()
+        return ProfitSettingsResponse.model_validate(settings)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+@router.get("/rounds/{round_id}/profit-details", response_model=RoundProfitDetailsResponse)
+async def get_round_profit_details(
+    round_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    admin_id: UUID = Depends(_require_admin),
+):
+    """Get detailed profit breakdown for a specific round."""
+    result = await db.execute(
+        select(GameRound).where(GameRound.id == round_id)
+    )
+    game_round = result.scalar_one_or_none()
+    if not game_round:
+        raise HTTPException(status_code=404, detail="Round not found")
+
+    return RoundProfitDetailsResponse(
+        round_id=game_round.id,
+        total_bets=game_round.total_bets,
+        total_payout_pool=game_round.total_payout_pool,
+        house_profit=game_round.house_profit,
+        total_calculated_payouts=game_round.total_calculated_payouts,
+        total_actual_payouts=game_round.total_payouts,
+        payout_reduced=game_round.payout_reduced,
+        applied_house_percentage=game_round.applied_house_percentage,
+        applied_winners_percentage=game_round.applied_winners_percentage,
+        flagged_for_review=game_round.flagged_for_review,
+    )

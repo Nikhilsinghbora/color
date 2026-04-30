@@ -31,9 +31,26 @@ vi.mock('@/hooks/useCountdown', () => ({
   useCountdown: vi.fn().mockReturnValue({ remaining: 25, isExpired: false }),
 }));
 
+vi.mock('@/lib/sound-manager', () => ({
+  soundManager: {
+    initialize: vi.fn(),
+    playTick: vi.fn(),
+    playLastSecond: vi.fn(),
+    playBetConfirm: vi.fn(),
+    playWinCelebration: vi.fn(),
+    setMuted: vi.fn(),
+    getIsMuted: vi.fn().mockReturnValue(false),
+  },
+}));
+
 vi.mock('@/lib/api-client', () => ({
   apiClient: {
-    get: vi.fn().mockResolvedValue({ data: { entries: [], player_rank: null } }),
+    get: vi.fn().mockImplementation((url: string) => {
+      if (url === '/game/history' || url === '/game/my-history') {
+        return Promise.resolve({ data: { items: [], total: 0, page: 1, size: 10, has_more: false } });
+      }
+      return Promise.resolve({ data: { entries: [], player_rank: null } });
+    }),
     post: vi.fn(),
   },
   registerAuthStore: vi.fn(),
@@ -59,8 +76,26 @@ const mockGameState = {
   ],
   placedBets: [],
   result: null,
+  lastResult: null,
+  betAmount: '10',
+  roundHistory: [],
   connectionStatus: 'connected',
   selectedBets: {},
+  addPlacedBet: vi.fn(),
+  setBetAmount: vi.fn(),
+  gameModes: [],
+  activeGameModeId: null,
+  periodNumber: null,
+  showBetSheet: false,
+  betSheetType: null,
+  showWinLossDialog: false,
+  setGameModes: vi.fn(),
+  setActiveGameMode: vi.fn(),
+  setPeriodNumber: vi.fn(),
+  openBetSheet: vi.fn(),
+  closeBetSheet: vi.fn(),
+  openWinLossDialog: vi.fn(),
+  closeWinLossDialog: vi.fn(),
 };
 
 vi.mock('@/stores/game-store', () => ({

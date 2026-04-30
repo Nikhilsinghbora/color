@@ -56,8 +56,13 @@ vi.mock('@/stores/game-store', () => ({
       ],
       placedBets: [],
       result: null,
+      lastResult: null,
+      betAmount: '10',
+      roundHistory: [],
       connectionStatus: 'connected',
       selectedBets: {},
+      addPlacedBet: vi.fn(),
+      setBetAmount: vi.fn(),
     }),
 }));
 
