@@ -33,7 +33,11 @@ class Settings(BaseSettings):
     email_from: str = "noreply@colorprediction.local"
 
     # CORS
-    cors_origins: list[str] = ["http://localhost:3000"]
+    cors_origins: list[str] = [
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://172.22.16.1:3000",  # Network interface
+    ]
 
     model_config = {"env_prefix": "APP_", "env_file": ".env", "extra": "ignore"}
 
