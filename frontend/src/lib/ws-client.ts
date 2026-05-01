@@ -59,21 +59,29 @@ export function createWSClient(options: WSClientOptions = {}): WSClient {
   function getBaseUrl(): string {
     if (options.baseUrl) return options.baseUrl;
 
-    if (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_WS_URL) {
-      return process.env.NEXT_PUBLIC_WS_URL;
+    // In Next.js, NEXT_PUBLIC_ env vars are available at build time and runtime
+    const envWsUrl = process.env.NEXT_PUBLIC_WS_URL;
+    if (envWsUrl) {
+      console.log('[ws-client] Using NEXT_PUBLIC_WS_URL:', envWsUrl);
+      return envWsUrl;
     }
 
     if (typeof window !== 'undefined') {
       const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      return `${proto}//${window.location.host}`;
+      const fallback = `${proto}//${window.location.host}`;
+      console.log('[ws-client] No NEXT_PUBLIC_WS_URL, using fallback:', fallback);
+      return fallback;
     }
 
+    console.log('[ws-client] Using default: ws://localhost:3000');
     return 'ws://localhost:3000';
   }
 
   function buildUrl(roundId: string, token: string): string {
     const base = getBaseUrl().replace(/\/$/, '');
-    return `${base}/ws/game/${roundId}?token=${token}`;
+    const url = `${base}/ws/game/${roundId}?token=${token}`;
+    console.log('[ws-client] Built WebSocket URL:', url.replace(/token=.*/, 'token=***'));
+    return url;
   }
 
   function setStatus(s: WSStatus) {
@@ -129,6 +137,7 @@ export function createWSClient(options: WSClientOptions = {}): WSClient {
   function openConnection(roundId: string, token: string) {
     // Clean up any existing socket
     if (ws) {
+      console.log('[ws-client] Closing existing WebSocket connection');
       try { ws.close(); } catch { /* ignore */ }
       ws = null;
     }
@@ -137,13 +146,16 @@ export function createWSClient(options: WSClientOptions = {}): WSClient {
     const url = buildUrl(roundId, token);
 
     try {
+      console.log('[ws-client] Creating WebSocket instance...');
       ws = new WebSocket(url);
-    } catch {
+    } catch (error) {
+      console.error('[ws-client] Failed to create WebSocket:', error);
       scheduleReconnect();
       return;
     }
 
     ws.onopen = () => {
+      console.log('[ws-client] ✅ WebSocket connection OPENED');
       setStatus('connected');
       reconnectAttempt = 0; // reset on successful connection
     };
@@ -151,9 +163,11 @@ export function createWSClient(options: WSClientOptions = {}): WSClient {
     ws.onmessage = (event: MessageEvent) => {
       try {
         const data = JSON.parse(event.data) as WSIncomingMessage;
+        console.log('[ws-client] 📩 Received message:', data.type);
 
         // Handle auth token expiry error from server
         if (data.type === 'error' && data.code === 'TOKEN_EXPIRED') {
+          console.warn('[ws-client] Token expired, attempting refresh');
           ws?.close();
           handleTokenExpiry().then((reconnected) => {
             if (!reconnected) {
@@ -164,12 +178,18 @@ export function createWSClient(options: WSClientOptions = {}): WSClient {
         }
 
         dispatchMessage(data);
-      } catch {
+      } catch (error) {
+        console.warn('[ws-client] Failed to parse message:', error);
         // Invalid JSON — ignore per design doc
       }
     };
 
-    ws.onclose = () => {
+    ws.onclose = (event) => {
+      console.log('[ws-client] 🔌 WebSocket connection CLOSED:', {
+        code: event.code,
+        reason: event.reason || 'no reason',
+        wasClean: event.wasClean,
+      });
       ws = null;
       if (!intentionalClose) {
         scheduleReconnect();
@@ -178,7 +198,8 @@ export function createWSClient(options: WSClientOptions = {}): WSClient {
       }
     };
 
-    ws.onerror = () => {
+    ws.onerror = (error) => {
+      console.error('[ws-client] ❌ WebSocket ERROR:', error);
       // onerror is always followed by onclose, so reconnect logic is in onclose
     };
   }
