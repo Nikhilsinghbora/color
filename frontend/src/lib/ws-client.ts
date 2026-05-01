@@ -190,6 +190,18 @@ export function createWSClient(options: WSClientOptions = {}): WSClient {
         reason: event.reason || 'no reason',
         wasClean: event.wasClean,
       });
+
+      // Common close codes:
+      // 1000 = Normal closure
+      // 1001 = Going away
+      // 1006 = Abnormal closure (no close frame received)
+      // 4001 = Authentication failed (custom code from our backend)
+      if (event.code === 4001) {
+        console.error('[ws-client] ❌ Authentication failed - token invalid or expired');
+      } else if (event.code === 1006) {
+        console.warn('[ws-client] ⚠️ Connection closed abnormally - backend may have rejected connection');
+      }
+
       ws = null;
       if (!intentionalClose) {
         scheduleReconnect();
