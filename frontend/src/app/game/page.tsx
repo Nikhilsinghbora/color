@@ -46,13 +46,33 @@ export default function GameViewPage() {
 
   // ── Auth state ──
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const [hasHydrated, setHasHydrated] = useState(false);
+
+  // Wait for Zustand hydration before making API calls
+  useEffect(() => {
+    const unsubscribe = useAuthStore.persist.onFinishHydration(() => {
+      console.log('[GamePage] Auth store hydrated');
+      setHasHydrated(true);
+    });
+    if (useAuthStore.persist.hasHydrated()) {
+      console.log('[GamePage] Auth store already hydrated');
+      setHasHydrated(true);
+    }
+    return unsubscribe;
+  }, []);
 
   // Derive the active round ID from the selected game mode
   const activeMode = (gameModes ?? []).find((m) => m.id === activeGameModeId);
   const roundId = activeMode?.active_round_id ?? null;
 
-  // ── Fetch game modes on mount (ONLY if authenticated) ──
+  // ── Fetch game modes on mount (ONLY if authenticated AND hydrated) ──
   useEffect(() => {
+    // Wait for hydration to complete
+    if (!hasHydrated) {
+      console.log('[GamePage] Waiting for auth store hydration...');
+      return;
+    }
+
     // Don't fetch if not authenticated - wait for auth guard to redirect
     if (!isAuthenticated) {
       console.log('[GamePage] Not authenticated, skipping game modes fetch');
@@ -85,7 +105,7 @@ export default function GameViewPage() {
 
     fetchModes();
     return () => { cancelled = true; };
-  }, [isAuthenticated, setGameModes, setActiveGameMode]);
+  }, [hasHydrated, isAuthenticated, setGameModes, setActiveGameMode]);
 
   // Log round ID changes for debugging
   useEffect(() => {

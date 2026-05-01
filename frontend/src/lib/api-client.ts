@@ -66,11 +66,13 @@ export function getErrorMessage(
 // Axios instance
 // ---------------------------------------------------------------------------
 
-const BASE_URL =
-  typeof process !== 'undefined' &&
-  (process.env.NEXT_PUBLIC_API_URL as string | undefined)
-    ? process.env.NEXT_PUBLIC_API_URL
-    : '/api/v1';
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
+
+// Log the API base URL on initialization (client-side only)
+if (typeof window !== 'undefined') {
+  console.log('[api-client] Using BASE_URL:', BASE_URL);
+  console.log('[api-client] NEXT_PUBLIC_API_URL from env:', process.env.NEXT_PUBLIC_API_URL || 'NOT SET');
+}
 
 export const apiClient = axios.create({
   baseURL: BASE_URL,
