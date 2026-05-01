@@ -66,15 +66,11 @@ export function createWSClient(options: WSClientOptions = {}): WSClient {
       return envWsUrl;
     }
 
-    if (typeof window !== 'undefined') {
-      const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const fallback = `${proto}//${window.location.host}`;
-      console.log('[ws-client] No NEXT_PUBLIC_WS_URL, using fallback:', fallback);
-      return fallback;
-    }
-
-    console.log('[ws-client] Using default: ws://localhost:3000');
-    return 'ws://localhost:3000';
+    // If no env var, default to backend WebSocket port
+    const fallback = 'ws://localhost:8000';
+    console.log('[ws-client] ⚠️ NEXT_PUBLIC_WS_URL not set, using fallback:', fallback);
+    console.log('[ws-client] ⚠️ Please set NEXT_PUBLIC_WS_URL in .env.local and restart dev server');
+    return fallback;
   }
 
   function buildUrl(roundId: string, token: string): string {
