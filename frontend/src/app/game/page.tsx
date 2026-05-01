@@ -133,7 +133,8 @@ export default function GameViewPage() {
   const closeWinLossDialog = useGameStore((s) => s.closeWinLossDialog);
   const result = useGameStore((s) => s.result);
 
-  const { remaining } = useCountdown(timerRemaining);
+  // Use timer directly from store - WebSocket updates it via timer_tick messages
+  const remaining = timerRemaining;
 
   // ── Local UI state ──
   const [toast, setToast] = useState<string | null>(null);
