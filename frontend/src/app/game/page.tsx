@@ -7,6 +7,7 @@ import { useWebSocket } from '@/hooks/useWebSocket';
 import { useCountdown } from '@/hooks/useCountdown';
 import { useGameStore } from '@/stores/game-store';
 import { useWalletStore } from '@/stores/wallet-store';
+import { useAuthStore } from '@/stores/auth-store';
 import { apiClient, parseApiError, getErrorMessage } from '@/lib/api-client';
 import { calculatePotentialPayout } from '@/lib/utils';
 import { soundManager } from '@/lib/sound-manager';
@@ -43,12 +44,21 @@ export default function GameViewPage() {
   const setGameModes = useGameStore((s) => s.setGameModes);
   const setActiveGameMode = useGameStore((s) => s.setActiveGameMode);
 
+  // ── Auth state ──
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+
   // Derive the active round ID from the selected game mode
   const activeMode = (gameModes ?? []).find((m) => m.id === activeGameModeId);
   const roundId = activeMode?.active_round_id ?? null;
 
-  // ── Fetch game modes on mount ──
+  // ── Fetch game modes on mount (ONLY if authenticated) ──
   useEffect(() => {
+    // Don't fetch if not authenticated - wait for auth guard to redirect
+    if (!isAuthenticated) {
+      console.log('[GamePage] Not authenticated, skipping game modes fetch');
+      return;
+    }
+
     let cancelled = false;
 
     async function fetchModes() {
@@ -75,7 +85,7 @@ export default function GameViewPage() {
 
     fetchModes();
     return () => { cancelled = true; };
-  }, [setGameModes, setActiveGameMode]);
+  }, [isAuthenticated, setGameModes, setActiveGameMode]);
 
   // Log round ID changes for debugging
   useEffect(() => {

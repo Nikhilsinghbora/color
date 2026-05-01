@@ -111,7 +111,8 @@ export function useWebSocket(roundId: string) {
     console.log('[useWebSocket] Auth state - isAuthenticated:', isAuthenticated, 'hasToken:', !!token);
 
     if (!token) {
-      console.log('[useWebSocket] No token available, skipping connection');
+      console.warn('[useWebSocket] ⚠️ No access token available. Please login to connect WebSocket.');
+      console.warn('[useWebSocket] Navigate to /login to authenticate');
       return;
     }
 
